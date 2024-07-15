@@ -11,6 +11,9 @@ dependencies = [
     "circuitsvis>=1.43.2",
     "torch>=2.1.2",
     "ipykernel>=6.29.5",
+    "pip>=24.1.2",
+    "nbconvert>=7.16.4",
+    "notebook>=7.2.1",
 ]
 requires-python = ">=3.11"
 readme = "README.md"
