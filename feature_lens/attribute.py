@@ -18,14 +18,14 @@ def get_sae_cache_for_target_feature_as_metric(
     cache_dict, fwd, bwd = model.get_caching_hooks(
         names_filter=lambda name: "sae" in name,
         incl_bwd=True,
-        device=DeviceManager.instance().get_device(),
+        device=DeviceManager.instance().get_device(),  # type: ignore
     )
 
     with model.hooks(
         fwd_hooks=fwd,
         bwd_hooks=bwd,
     ):
-        _ = handler.get_logits(model, input=input)
+        _ = handler.get_logits(model, input=input)  # type: ignore
         # Mean across examples
         # Sum across token positions
         metric = (

@@ -116,7 +116,7 @@ def get_sae_cache(model, handler, input="clean") -> ActivationCache:
     cache_dict, fwd, bwd = model.get_caching_hooks(
         names_filter=lambda name: "sae" in name,
         incl_bwd=True,
-        device=DeviceManager.instance().get_device(),
+        device=DeviceManager.instance().get_device(),  # type: ignore
     )
 
     with model.hooks(
