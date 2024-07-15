@@ -1,27 +1,15 @@
 # Monkey patch get_caching_hooks to enable delta
 
-import logging
-from contextlib import contextmanager
-from dataclasses import dataclass
 from functools import partial
 from typing import (
-    Any,
     Callable,
-    Dict,
-    Iterable,
-    List,
-    Literal,
     Optional,
-    Protocol,
     Sequence,
     Tuple,
     Union,
-    runtime_checkable,
 )
 
 import torch
-import torch.nn as nn
-import torch.utils.hooks as hooks
 
 from transformer_lens.utils import Slice, SliceInput
 from transformer_lens import ActivationCache
@@ -33,7 +21,8 @@ from feature_lens.utils.device_manager import DeviceManager
 NamesFilter = Optional[Union[Callable[[str], bool], Sequence[str]]]
 DeviceType = Optional[torch.device]
 
-# NOTE: Redefinition of base HookedRootModule's get_caching_hooks 
+
+# NOTE: Redefinition of base HookedRootModule's get_caching_hooks
 # This is to support backpropagation of intermediate activations
 def get_caching_hooks(
     self,
@@ -122,23 +111,25 @@ def get_caching_hooks(
 
     return cache, fwd_hooks, bwd_hooks
 
-def get_sae_cache(model, handler, input = "clean") -> ActivationCache:
-  cache_dict, fwd, bwd = model.get_caching_hooks(
-      names_filter = lambda name: "sae" in name,
-      incl_bwd = True,
-      device = DeviceManager.instance().get_device(),
-  )
 
-  with model.hooks(
-      fwd_hooks=fwd,
-      bwd_hooks=bwd,
-  ):
-      logits = handler.get_logits(model, input = input)
-      metric = handler.get_metric(logits).mean()
-      metric.backward()
+def get_sae_cache(model, handler, input="clean") -> ActivationCache:
+    cache_dict, fwd, bwd = model.get_caching_hooks(
+        names_filter=lambda name: "sae" in name,
+        incl_bwd=True,
+        device=DeviceManager.instance().get_device(),
+    )
 
-  cache = ActivationCache(cache_dict, model)
-  return cache
+    with model.hooks(
+        fwd_hooks=fwd,
+        bwd_hooks=bwd,
+    ):
+        logits = handler.get_logits(model, input=input)
+        metric = handler.get_metric(logits).mean()
+        metric.backward()
+
+    cache = ActivationCache(cache_dict, model)
+    return cache
+
 
 # Monkey patch the get_caching_hooks method
 HookedRootModule.get_caching_hooks = get_caching_hooks

@@ -1,7 +1,8 @@
-""" Utilities for working with various data types. """
+"""Utilities for working with various data types."""
+
 
 def flatten_dict(nested_dict, prefix="", delimiter="."):
-    """ Flattens a nested dictionary """
+    """Flattens a nested dictionary"""
     flattened = {}
     for key, value in nested_dict.items():
         new_key = f"{prefix}{key}"

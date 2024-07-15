@@ -1,9 +1,10 @@
-""" Utilities for managing torch device """
+"""Utilities for managing torch device"""
 
 import torch
 from contextlib import contextmanager
 from typing import Generator
 from feature_lens.core.patterns import Singleton
+
 
 def get_default_device() -> str:
     if torch.cuda.is_available():
@@ -21,7 +22,7 @@ def get_default_device() -> str:
 
 @Singleton
 class DeviceManager:
-    """ Device manager class
+    """Device manager class
 
     Example:
     ```
@@ -29,6 +30,7 @@ class DeviceManager:
         ...
     ```
     """
+
     device: str
 
     def __init__(self) -> None:

@@ -4,8 +4,9 @@ from typing import Literal
 from feature_lens.core.types import Model, Logits, Metric
 from feature_lens.utils.data_handler import DataHandler, logits_to_logit_diff
 
+
 class StringHandler(DataHandler):
-    """ Handles a batch of strings. """
+    """Handles a batch of strings."""
 
     def __init__(
         self,
@@ -30,16 +31,18 @@ class StringHandler(DataHandler):
     def tokenize(self, model: Model):
         self.clean_tokens = model.to_tokens(self.clean_prompts)
         self.corrupt_tokens = model.to_tokens(self.corrupt_prompts)
-        self.answer_tokens = model.to_tokens(self.answers, prepend_bos=False).squeeze(-1)
+        self.answer_tokens = model.to_tokens(self.answers, prepend_bos=False).squeeze(
+            -1
+        )
         self.wrong_answer_tokens = model.to_tokens(
             self.wrong_answers, prepend_bos=False
         ).squeeze(-1)
 
         self.clean_str_tokens = model.to_str_tokens(self.clean_prompts)
         self.corrupt_str_tokens = model.to_str_tokens(self.corrupt_prompts)
-        self.answer_str_tokens = model.to_str_tokens(self.answers, prepend_bos = False)
+        self.answer_str_tokens = model.to_str_tokens(self.answers, prepend_bos=False)
         self.wrong_answer_str_tokens = model.to_str_tokens(
-            self.wrong_answers, prepend_bos = False
+            self.wrong_answers, prepend_bos=False
         )
 
     def get_logits(
@@ -60,7 +63,8 @@ class StringHandler(DataHandler):
 
     def get_n_pos(self) -> int:
         return self.clean_tokens.shape[1]
-    
+
+
 def as_dataframe(handler: StringHandler) -> pd.DataFrame:
     """Converts a StringHandler to a pandas DataFrame."""
     data = {

@@ -1,4 +1,4 @@
-""" Utilities for loading paired data. """
+"""Utilities for loading paired data."""
 
 import abc
 import eindex
@@ -99,9 +99,7 @@ class SinglePromptHandler(DataHandler):
         self.clean_str_tokens = model.to_str_tokens(self.clean_tokens)
         self.corrupt_str_tokens = model.to_str_tokens(self.corrupt_tokens)
         self.answer_str_tokens = model.to_str_tokens(self.answer_tokens)
-        self.wrong_answer_str_tokens = model.to_str_tokens(
-            self.wrong_answer_tokens
-        )
+        self.wrong_answer_str_tokens = model.to_str_tokens(self.wrong_answer_tokens)
 
     def get_logits(
         self, model: Model, input: Literal["clean", "corrupt"] = "clean", **kwargs

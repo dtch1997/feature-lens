@@ -1,6 +1,7 @@
 import json
 import urllib.parse
 
+
 def get_neuronpedia_url(layer: int, features: list[int], name: str = "temporary_list"):
     url = "https://neuronpedia.org/quick-list/"
     name = urllib.parse.quote(name)

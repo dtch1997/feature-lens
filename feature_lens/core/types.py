@@ -1,4 +1,5 @@
 """Standard type definitions."""
+
 import torch
 import transformer_lens as tl
 
@@ -22,6 +23,7 @@ Activations = Float[torch.Tensor, "batch seq ..."]
 Model = tl.HookedTransformer
 Metric = Float[torch.Tensor, " ()"]
 MetricFn = Callable[[Model, Tokens], Metric]
+
 
 class TLForwardHookFn(Protocol):
     def __call__(self, activations: torch.Tensor, hook: HookPoint) -> torch.Tensor:
