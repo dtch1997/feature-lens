@@ -18,6 +18,7 @@ HookNameFilterFn = Callable[[HookName], bool]
 # Torch types
 Tokens = Int[torch.Tensor, "batch seq"]
 Logits = Float[torch.Tensor, "batch seq d_vocab"]
+Activations = Float[torch.Tensor, "batch seq ..."]
 Model = tl.HookedTransformer
 Metric = Float[torch.Tensor, " ()"]
 MetricFn = Callable[[Model, Tokens], Metric]
