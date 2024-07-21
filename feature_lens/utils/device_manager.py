@@ -14,10 +14,10 @@ def get_default_device() -> str:
         major_version = int(torch.__version__.split(".")[0])
         if major_version >= 2:
             return "mps"
+        else: 
+            return "cpu"
     else:
         return "cpu"
-
-    raise RuntimeError("Should not reach here!")
 
 
 @Singleton
