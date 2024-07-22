@@ -6,6 +6,20 @@
 
 A research engineering toolkit for understanding how SAE features relate to each other, and to upstream / downstream components. 
 
+For projects supported by `feature-lens`, see `projects`
+
+# Quickstart
+
+```bash
+pip install feature-lens
+```
+
+# Development
+
+Refer to [Setup](docs/setup.md) for how to set up development environment.
+
+# Implementation Details
+
 Techniques for finding relevant feature associations:
 - Activation patching (employed in [Causal Graphs](https://www.lesswrong.com/posts/uNGAjA8wCNDZHJxu8/causal-graphs-of-gpt-2-small-s-residual-stream))
 - (Total) attribution patching (employed in [Sparse Feature Circuits](https://arxiv.org/abs/2403.19647))
@@ -20,13 +34,3 @@ Tools which will be implemented.
 Ideas under consideration.
 - [ ] **Feature clustering**. Features with similar upstream and downstream features could be hypothesized to be performing a similar role. Clustering features based on their connections may reveal novel insight about the general types of "functional role" played by SAE features. 
 - [ ] **Linear direction features.** Steering vectors are like an SAE feature because they are added to the residual activations. 
-
-# Quickstart
-
-```bash
-pip install feature-lens
-```
-
-# Development
-
-Refer to [Setup](docs/setup.md) for how to set up development environment.
