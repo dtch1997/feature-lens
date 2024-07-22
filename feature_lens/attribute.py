@@ -4,7 +4,7 @@ from transformer_lens import ActivationCache
 from jaxtyping import Float
 from feature_lens.core.types import Model, HookName
 from feature_lens.utils.data_handler import DataHandler
-from feature_lens.utils.device_manager import DeviceManager
+from feature_lens.utils.device import get_device
 
 
 def get_sae_cache_for_target_feature_as_metric(
@@ -18,7 +18,7 @@ def get_sae_cache_for_target_feature_as_metric(
     cache_dict, fwd, bwd = model.get_caching_hooks(
         names_filter=lambda name: "sae" in name,
         incl_bwd=True,
-        device=DeviceManager.instance().get_device(),  # type: ignore
+        device=get_device(),  # type: ignore
     )
 
     with model.hooks(

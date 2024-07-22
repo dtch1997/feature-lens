@@ -13,10 +13,11 @@ def _init_device() -> str:
         major_version = int(torch.__version__.split(".")[0])
         if major_version >= 2:
             return "mps"
-        else: 
+        else:
             return "cpu"
     else:
         return "cpu"
+
 
 _DEFAULT_DEVICE = _init_device()
 
@@ -25,9 +26,11 @@ def get_device() -> str:
     global _DEFAULT_DEVICE
     return _DEFAULT_DEVICE
 
+
 def set_device(device: str) -> None:
     global _DEFAULT_DEVICE
     _DEFAULT_DEVICE = device
+
 
 @contextmanager
 def use_device(device: str) -> Generator:
