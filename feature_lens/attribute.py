@@ -39,13 +39,18 @@ def get_sae_cache_for_target_feature_as_metric(
 
 def compute_attribution(
     hook_name: HookName,
+    *,
     clean_cache: ActivationCache,
-    corrupt_cache: ActivationCache,
+    corrupt_cache: ActivationCache | None = None,
 ) -> Float[torch.Tensor, "batch seq ..."]:
     """Compute the attribution scores at a given hook point."""
     clean_acts = clean_cache[hook_name]
-    corrupt_acts = corrupt_cache[hook_name]
     clean_grads = clean_cache[hook_name + "_grad"]
+
+    if corrupt_cache is None:
+        corrupt_acts = torch.zeros_like(clean_acts)
+    else:
+        corrupt_acts = corrupt_cache[hook_name]
 
     attrib = (corrupt_acts - clean_acts) * clean_grads
     return attrib
