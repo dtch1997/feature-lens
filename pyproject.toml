@@ -15,6 +15,7 @@ dependencies = [
     "nbconvert>=7.16.4",
     "notebook>=7.2.1",
     "seaborn>=0.13.2",
+    "sae-vis>=0.2.15",
 ]
 requires-python = ">=3.11"
 readme = "README.md"
