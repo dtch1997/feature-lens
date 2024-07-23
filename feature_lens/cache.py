@@ -15,7 +15,9 @@ from transformer_lens.utils import Slice, SliceInput
 from transformer_lens import ActivationCache
 from transformer_lens.hook_points import HookPoint, HookedRootModule
 
+from feature_lens.core.types import Model
 from feature_lens.utils.device import get_device
+from feature_lens.utils.data_handler import DataHandler
 
 # Define type aliases
 NamesFilter = Optional[Union[Callable[[str], bool], Sequence[str]]]
@@ -112,7 +114,7 @@ def get_caching_hooks(
     return cache, fwd_hooks, bwd_hooks
 
 
-def get_sae_cache(model, handler, input="clean") -> ActivationCache:
+def get_sae_cache(model: Model, handler: DataHandler, input="clean") -> ActivationCache:
     cache_dict, fwd, bwd = model.get_caching_hooks(
         names_filter=lambda name: "sae" in name,
         incl_bwd=True,
