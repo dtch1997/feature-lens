@@ -7,32 +7,32 @@ from sae_lens import SAE, SAEConfig
 
 set_device("cpu")
 
+
 @pytest.fixture
 def solu1l_model() -> Model:
     return load_model("solu-1l")
 
+
 @pytest.fixture
 def solu1l_sae(solu1l_model: Model) -> SAE:
     cfg = SAEConfig(
-        architecture='standard',
-        d_in = solu1l_model.cfg.d_model,
-        d_sae = 2 * solu1l_model.cfg.d_model,
+        architecture="standard",
+        d_in=solu1l_model.cfg.d_model,
+        d_sae=2 * solu1l_model.cfg.d_model,
         activation_fn_str="relu",
         apply_b_dec_to_input=False,
         finetuning_scaling_factor=False,
-
         context_size=1024,
-        model_name = "solu-1l",
-        hook_name = "blocks.0.hook_resid_pre",
-        hook_layer = 0,
-        hook_head_index = None,
-        prepend_bos = False,
-        dataset_path = "n/a",
-        dataset_trust_remote_code = False,
-        normalize_activations = "n/a",
-
-        device = get_device(),
+        model_name="solu-1l",
+        hook_name="blocks.0.hook_resid_pre",
+        hook_layer=0,
+        hook_head_index=None,
+        prepend_bos=False,
+        dataset_path="n/a",
+        dataset_trust_remote_code=False,
+        normalize_activations="n/a",
+        device=get_device(),
         dtype="float32",
-        sae_lens_training_version="n/a"        
+        sae_lens_training_version="n/a",
     )
     return SAE(cfg)
