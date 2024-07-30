@@ -11,7 +11,9 @@ For projects supported by `feature-lens`, see `projects`
 # Quickstart
 
 ```bash
-pip install feature-lens
+git clone https://github.com/dtch1997/feature-lens
+cd feature-lens
+pip install -e .
 ```
 
 # Development
