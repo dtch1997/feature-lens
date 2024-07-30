@@ -1,4 +1,3 @@
-import pandas as pd
 import eindex
 
 from typing import Literal

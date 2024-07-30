@@ -1,7 +1,10 @@
 from sae_lens import SAE, HookedSAETransformer
 from typing import cast
 from feature_lens.utils.device import get_device
-from feature_lens.nn.transcoder import Transcoder, load_pretrained as _load_mlp_transcoder
+from feature_lens.nn.transcoder import (
+    Transcoder,
+    load_pretrained as _load_mlp_transcoder,
+)
 
 
 def load_model(name: str = "gpt2-small") -> HookedSAETransformer:
@@ -29,6 +32,7 @@ def load_sae(
     )
     sae.use_error_term = True
     return sae
+
 
 def load_transcoder(
     release: str = "gpt2-small-mlp-tc", sae_id: str = "blocks.8.mlp.hook_mlp_in"

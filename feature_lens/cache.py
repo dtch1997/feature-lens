@@ -114,7 +114,9 @@ def get_caching_hooks(
     return cache, fwd_hooks, bwd_hooks
 
 
-def get_sae_cache(model: Model, handler: DataHandler, input: InputType = "clean") -> ActivationCache:
+def get_sae_cache(
+    model: Model, handler: DataHandler, input: InputType = "clean"
+) -> ActivationCache:
     cache_dict, fwd, bwd = model.get_caching_hooks(
         names_filter=lambda name: "sae" in name,
         incl_bwd=True,

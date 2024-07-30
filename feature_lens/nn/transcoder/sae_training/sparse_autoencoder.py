@@ -1,3 +1,4 @@
+# type: ignore
 """Most of this is just copied over from Arthur's code and slightly simplified:
 https://github.com/ArthurConmy/sae/blob/main/sae/model.py
 """
@@ -14,8 +15,6 @@ from torch import Tensor, nn
 from torch.distributions.categorical import Categorical
 from tqdm import tqdm
 from transformer_lens.hook_points import HookedRootModule, HookPoint
-
-from feature_lens.nn.transcoder import sae_training
 
 
 class SparseAutoencoder(HookedRootModule):
