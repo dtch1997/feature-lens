@@ -45,7 +45,7 @@ lint.ignore = ["F841", "E501", "E741", "I001", "E731", "F722"]
 "__init__.py" = ["F401", "F403", "E402"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["pdm-python-project-template"]
+known-first-party = ["feature_lens"]
 force-single-line = true
 single-line-exclusions = ["typing"]
 
@@ -55,7 +55,7 @@ ban-relative-imports = "all"
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
-include = ["pdm-python-project-template"]
+include = ["feature_lens"]
 
 [tool.semantic_release]
 version_variables = [
