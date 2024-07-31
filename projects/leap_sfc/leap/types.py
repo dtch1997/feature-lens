@@ -5,6 +5,7 @@ from jaxtyping import Float
 from dataclasses import dataclass
 from typing import Literal
 
+from transformer_lens import ActivationCache
 from feature_lens.core.types import HookName
 from sae_lens import SAE, HookedSAETransformer
 from feature_lens.nn.transcoder import Transcoder
