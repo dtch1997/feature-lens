@@ -2,127 +2,38 @@ from __future__ import annotations
 
 import torch
 import networkx
-from feature_lens.core.types import HookName
+
 from feature_lens.utils.data_handler import DataHandler
 
 from jaxtyping import Float
-from sae_lens import SAE, HookedSAETransformer
-from feature_lens.nn.transcoder import Transcoder
+
 from transformer_lens import ActivationCache
 
 from dataclasses import dataclass
 from typing import Literal, Iterable
 
-HeadType = Literal["mlp", "att", "metric"]
-Vector = Float[torch.Tensor, " d"]
-
-@dataclass
-class Head:
-    layer: int
-    head_type: HeadType
-
-    def to_string(self) -> str:
-        return f"{self.layer}.{self.head_type}"
+   
     
-    @staticmethod
-    def from_string(s: str) -> "Head":
-        layer, head_type = s.split(".")
-        return Head(int(layer), head_type)
+def run_with_cache(
+    model_handler: ModelHandler,
+    data_handler: DataHandler
+) -> CacheHandler:
+    """ Runs the model on some data, populating a cache """
+    # TODO: implement hooks to get cached activations
+    # TODO: implement running the model on the data
+    raise NotImplementedError("Need to implement run_with_cache")
 
-@dataclass(frozen=True)
-class Node:
-    """
-    A node is a tuple (feature, token_position)
+def get_upstream_heads(head: Head) -> list[Head]:
+    """ Get the upstream heads of a head """
+    prev_heads = []
+    for layer in range(head.layer):
+        for head_type in ["mlp", "att"]:
+            prev_heads.append(Head(layer, head_type))
+    if head.head_type == "mlp":
+        prev_heads.append(Head(head.layer, "att"))
 
-    The feature itself is specified by:
-        1. Layer
-        2. Head type
-        3. Feature_id (the d_sae index)
+    return prev_heads
 
-    So a node might look like f“{layer}.{head}.{id}.{pos}”
-        - e.g. “11.attn.23421.15”
-
-    By convention, we count the metric as a (terminal) node.
-        - e.g. if n_layers = 12, we have nodes f“12.metric.0.{pos}” for each token position
-
-    """
-    layer: int
-    head_type: HeadType
-    feature_id: int # The position of the feature in the feature vector
-    token_pos: int # The position of the token in the sequences
-
-    def to_string(self) -> str:
-        return f"{self.layer}.{self.head_type}.{self.feature_id}.{self.token_pos}"
-    
-    @staticmethod
-    def from_string(s: str) -> "Node":
-        layer, head_type, feature_id, token_pos = s.split(".")
-        return Node(int(layer), head_type, int(feature_id), int(token_pos))
-
-@dataclass(frozen=True)
-class Edge:
-    upstream: Node
-    downstream: Node
-
-    def to_string(self) -> str:
-        return f"{self.upstream.to_string()}->{self.downstream.to_string()}"
-    
-    @staticmethod
-    def from_string(s: str) -> "Edge":
-        upstream, downstream = s.split("->")
-        return Edge(Node.from_string(upstream), Node.from_string(downstream))
-    
-class ModelHandler:
-    """ Handles a model and SAEs """
-    model: HookedSAETransformer
-    saes: dict[HookName, SAE]
-    transcoders: dict[HookName, Transcoder]
-
-    def __init__(self, model: HookedSAETransformer, saes: dict[HookName, SAE], transcoders: dict[HookName, Transcoder]):
-        self.model = model
-        self.saes = saes
-        self.transcoders = transcoders
-
-    @property 
-    def n_layers(self) -> int:
-        return self.model.cfg.n_layers
-
-    def run_with_cache(data_handler: DataHandler) -> CacheHandler:
-        """ Runs the model on some data, populating a cache """
-        # TODO: implement hooks to get cached activations
-        # TODO: implement running the model on the data
-        raise NotImplementedError("Need to implement run_with_cache")
-    
-    def get_upstream_heads(self, head: Head) -> list[Head]:
-        """ Get the upstream heads of a head """
-        raise NotImplementedError("Need to implement get_upstream_heads")
-
-    def get_n_features_at_head(self, head: Head) -> int:
-        """ Get the number of features at a head """
-        if head.head_type == "mlp":
-            return self.transcoders[head.layer].W_enc.shape[0]
-        elif head.head_type == "att":
-            return self.saes[head.layer].W_enc.shape[0]
-        else:
-            raise ValueError(f"Invalid head type: {head.head_type}")
- 
-    def get_encoder_weight(self, node: Node) -> Float[torch.Tensor, " d_model"]:
-        if node.head_type == "mlp":
-            return self.transcoders[node.layer].W_enc[node.feature_id]
-        elif node.head_type == "att":
-            return self.saes[node.layer].W_enc[node.feature_id]
-        else:
-            raise ValueError(f"Invalid head type: {node.head_type}")
-    
-    def get_decoder_weight(self, node: Node) -> Float[torch.Tensor, " d_model"]:
-        """ Returns the decoder weight for a given node """
-        if node.head_type == "mlp":
-            return self.transcoders[node.layer].W_dec[node.feature_id]
-        elif node.head_type == "att":
-            return self.saes[node.layer].W_dec[node.feature_id]
-        else:
-            raise ValueError(f"Invalid head type: {node.head_type}")        
-    
 def iter_all_nodes_at_head(head: Head, n_features: int, n_tokens: int) -> Iterable[Node]:
     """ Get all the nodes at a head """
     for feature_id in range(n_features):
