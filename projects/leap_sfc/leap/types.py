@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 from feature_lens.core.types import HookName
-from sae_lens import HookedSAETransformer
+from sae_lens import HookedSAETransformer, SAE  # noqa: F401
+from feature_lens.nn.transcoder import Transcoder  # noqa: F401
+from transformer_lens import ActivationCache  # noqa: F401
 
 Model = HookedSAETransformer
 HeadType = Literal["mlp", "att", "metric"]
@@ -29,7 +31,7 @@ class Head:
     @staticmethod
     def from_string(s: str) -> "Head":
         layer, head_type = s.split(".")
-        return Head(int(layer), head_type)
+        return Head(int(layer), head_type)  # type: ignore
 
     @property
     def hook_name_in(self) -> HookName:
@@ -69,7 +71,7 @@ class Feature:
     @staticmethod
     def from_string(s: str) -> "Feature":
         layer, head_type, feature_id = s.split(".")
-        return Feature(int(layer), head_type, int(feature_id))
+        return Feature(int(layer), head_type, int(feature_id))  # type: ignore
 
     @property
     def head(self) -> Head:
@@ -113,7 +115,7 @@ class Node:
     @staticmethod
     def from_string(s: str) -> "Node":
         layer, head_type, feature_id, token_pos = s.split(".")
-        return Node(int(layer), head_type, int(feature_id), int(token_pos))
+        return Node(int(layer), head_type, int(feature_id), int(token_pos))  # type: ignore
 
     @property
     def feature(self) -> Feature:
