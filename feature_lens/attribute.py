@@ -3,7 +3,7 @@ import torch
 from transformer_lens import ActivationCache
 from jaxtyping import Float
 from feature_lens.core.types import Model, HookName
-from feature_lens.utils.data_handler import DataHandler
+from feature_lens.data.handler import DataHandler
 from feature_lens.utils.device import get_device
 
 

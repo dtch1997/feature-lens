@@ -31,6 +31,8 @@ def load_sae(
         device=get_device(),  # type: ignore
     )
     sae.use_error_term = True
+    # NOTE: We turn off the forward pass hook z reshaping as we're handling this reshaping manually
+    sae.turn_off_forward_pass_hook_z_reshaping()
     return sae
 
 
