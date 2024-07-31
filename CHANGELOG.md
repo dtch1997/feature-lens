@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## v0.1.1 (2024-07-31)
+
+### Chore
+
+* chore: add feature-lens version to old projects ([`f3305fc`](https://github.com/dtch1997/feature-lens/commit/f3305fc6c536ff4bd5a131403a94c5070ba29e09))
+
+### Fix
+
+* fix: test ([`0061fe3`](https://github.com/dtch1997/feature-lens/commit/0061fe383ca4a6e5eca49001c468affcf8710eda))
+
+### Unknown
+
+* BREAKING: update feature-lens API ([`7c06ae3`](https://github.com/dtch1997/feature-lens/commit/7c06ae3ba293b69a562441258aa84c670d1d5f19))
+
 ## v0.1.0 (2024-07-30)
 
 ### Chore
