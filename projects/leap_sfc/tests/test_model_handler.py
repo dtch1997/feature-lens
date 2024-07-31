@@ -1,17 +1,7 @@
-import pytest
 import torch
 
-from projects.leap_sfc.leap.types import Model, SAE, Transcoder, Head, Feature
+from projects.leap_sfc.leap.types import Head, Feature
 from projects.leap_sfc.leap.model_handler import ModelHandler
-
-
-@pytest.fixture()
-def model_handler(model: Model, sae: SAE, transcoder: Transcoder):
-    return ModelHandler(
-        model,
-        {sae.cfg.hook_name: sae},
-        {transcoder.cfg.hook_name: transcoder},
-    )
 
 
 def test_model_handler_get_n_features_at_head(

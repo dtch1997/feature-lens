@@ -1,10 +1,15 @@
 import pytest
 
+from feature_lens.data.handler import Dataset, build_handler, DataHandler
+from feature_lens.data.toy_datasets import make_dataset
+from feature_lens.data.metric import LogitDiff, MetricFunction
 from feature_lens.core.types import Model
 from feature_lens.utils.load_pretrained import load_model
 from feature_lens.utils.device import set_device, get_device
 from sae_lens import SAE, SAEConfig
 from feature_lens.nn.transcoder import Transcoder, TranscoderConfig
+
+from projects.leap_sfc.leap.model_handler import ModelHandler
 
 set_device("cpu")
 
@@ -12,6 +17,21 @@ set_device("cpu")
 @pytest.fixture
 def model() -> Model:
     return load_model("solu-1l")
+
+
+@pytest.fixture
+def metric_fn() -> MetricFunction:
+    return LogitDiff()
+
+
+@pytest.fixture
+def dataset() -> Dataset:
+    return make_dataset("ioi")
+
+
+@pytest.fixture
+def data_handler(model: Model, dataset: Dataset) -> DataHandler:
+    return build_handler(model, dataset)
 
 
 @pytest.fixture
@@ -41,7 +61,9 @@ def sae(model: Model, expansion_factor: int) -> SAE:
         dtype="float32",
         sae_lens_training_version="n/a",
     )
-    return SAE(cfg)
+    sae = SAE(cfg)
+    sae.turn_off_forward_pass_hook_z_reshaping()
+    return sae
 
 
 @pytest.fixture
@@ -63,3 +85,12 @@ def transcoder(model: Model, expansion_factor: int) -> Transcoder:
         feature_sampling_method=None,
     )
     return Transcoder(cfg)
+
+
+@pytest.fixture()
+def model_handler(model: Model, sae: SAE, transcoder: Transcoder):
+    return ModelHandler(
+        model,
+        {sae.cfg.hook_name: sae},
+        {transcoder.cfg.hook_name: transcoder},
+    )

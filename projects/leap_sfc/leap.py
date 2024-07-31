@@ -1,88 +1,24 @@
 from __future__ import annotations
 
-import torch
 import networkx
 
-from feature_lens.utils.data_handler import DataHandler
 
-from jaxtyping import Float
+from typing import Iterable
 
-from transformer_lens import ActivationCache
-
-from dataclasses import dataclass
-from typing import Literal, Iterable
-
-   
-    
-def run_with_cache(
-    model_handler: ModelHandler,
-    data_handler: DataHandler
-) -> CacheHandler:
-    """ Runs the model on some data, populating a cache """
-    # TODO: implement hooks to get cached activations
-    # TODO: implement running the model on the data
-    raise NotImplementedError("Need to implement run_with_cache")
-
-def get_upstream_heads(head: Head) -> list[Head]:
-    """ Get the upstream heads of a head """
-    prev_heads = []
-    for layer in range(head.layer):
-        for head_type in ["mlp", "att"]:
-            prev_heads.append(Head(layer, head_type))
-    if head.head_type == "mlp":
-        prev_heads.append(Head(head.layer, "att"))
-
-    return prev_heads
-
-def iter_all_nodes_at_head(head: Head, n_features: int, n_tokens: int) -> Iterable[Node]:
-    """ Get all the nodes at a head """
-    for feature_id in range(n_features):
-        for token_pos in range(n_tokens):
-            yield Node(head.layer, head.head_type, feature_id, token_pos)
-
-class CacheHandler:
-    """ Handles a clean and corrupt cache """
-    clean_cache: ActivationCache
-    corrupt_cache: ActivationCache
-
-    def __init__(self, clean_cache: ActivationCache, corrupt_cache: ActivationCache):
-        self.clean_cache = clean_cache
-        self.corrupt_cache = corrupt_cache
-
-    @property 
-    def n_token(self) -> int:
-        """ Returns the number of token positions in the cached activations """
-        raise NotImplementedError("Need to implement n_token")
-
-    def get_layernorm_scale(layer: int) -> Float[torch.Tensor, " d_model"]:
-        """ Returns the layernorm scale for a layer """
-        raise NotImplementedError("Need to implement get_layernorm_scale")
-
-    def get_act(self, node: Node, corrupt: bool = False) -> Float[torch.Tensor, " d_model"]:
-        """ Returns the activation of a node """
-        raise NotImplementedError("Need to implement get_activation")
-    
-    def get_grad_metric_wrt_act(self, node: Node, corrupt: bool = False) -> Float[torch.Tensor, " d_model"]:
-        """ Returns the gradient of the metric with respect to the node """
-        raise NotImplementedError("Need to implement get_metric_grad")
-    
-    def get_grad_act_wrt_input(self, node: Node, corrupt: bool = False) -> Float[torch.Tensor, " d_model"]:
-        """ Returns the gradient of the node with respect to its head input """
-        raise NotImplementedError("Need to implement get_grad_wrt_input")
 
 def compute_direct_path_attribution(
     cache_handler: CacheHandler,
     upstream_node: Node,
     downstream_node: Node,
 ):
-    """ Compute a score that measures how much an upstream node directly affects a downstream node
+    """Compute a score that measures how much an upstream node directly affects a downstream node
 
-    The Direct Path Attribution (DPA) from an upstream feature F to a downstream feature G 
-    is the amount by which the activation of G decreases when we ablate the direct-path contribution of F. 
+    The Direct Path Attribution (DPA) from an upstream feature F to a downstream feature G
+    is the amount by which the activation of G decreases when we ablate the direct-path contribution of F.
 
-    Concretely: 
-    - Let a(F) and a(G) be the clean acts of F and G. 
-    - Let a’(G) be act of G when we subtract a(F)*decoder_col(F) from the input to the head where G lives. 
+    Concretely:
+    - Let a(F) and a(G) be the clean acts of F and G.
+    - Let a’(G) be act of G when we subtract a(F)*decoder_col(F) from the input to the head where G lives.
     - DPA(F -> G) = a(G) - a’(G)
     """
 
@@ -100,19 +36,21 @@ def compute_direct_path_attribution(
 
     return downstream_acts - ablated_acts
 
+
 def compute_metric_attribution(
     cache_handler: CacheHandler,
     upstream_node: Node,
     downstream_node: Node,
 ):
-    """ Compute a score that measures how important an edge is for the metric
-    
+    """Compute a score that measures how important an edge is for the metric
+
     Concretely: MA(F -> G) = DPA(F -> G) * d(metric) / da(G)
     """
     # Get the metric of the downstream node
     dpa = compute_direct_path_attribution(cache_handler, upstream_node, downstream_node)
     metric_grad = cache_handler.get_grad_metric_wrt_act(downstream_node)
     return dpa * metric_grad
+
 
 def compute_grad_wrt_input(
     model_handler: ModelHandler,
@@ -121,23 +59,26 @@ def compute_grad_wrt_input(
 ):
     raise NotImplementedError("Need to implement compute_grad_wrt_input")
 
+
 class LeapAlgo:
     graph: networkx.DiGraph
     model_handler: ModelHandler
     cache_handler: CacheHandler
     threshold: float
 
-    def __init__(self, model_handler: ModelHandler, cache_handler: CacheHandler, threshold: float):
+    def __init__(
+        self, model_handler: ModelHandler, cache_handler: CacheHandler, threshold: float
+    ):
         self.graph = networkx.DiGraph()
         self.model_handler = model_handler
         self.cache_handler = cache_handler
         self.threshold = threshold
 
     def iter_important_nodes_at_head(self, head: Head) -> Iterable[Node]:
-            # So we can just return the nodes at the head
+        # So we can just return the nodes at the head
         def is_node_at_head(node: Node) -> bool:
             return node.head_type == head.head_type and node.layer == head.layer
-        
+
         for node in self.graph.nodes:
             if is_node_at_head(node):
                 yield node
@@ -146,9 +87,7 @@ class LeapAlgo:
         for downstream_node in self.iter_important_nodes_at_head(head):
             # Compute the gradient d(node_act)/d(head_input)
             grad = compute_grad_wrt_input(
-                self.model_handler,
-                self.cache_handler,
-                downstream_node
+                self.model_handler, self.cache_handler, downstream_node
             )
 
             grad /= self.cache_handler.get_layernorm_scale(head.layer)
@@ -156,12 +95,13 @@ class LeapAlgo:
             # TODO: implement batched computation of MA
             for upstream_head in self.model_handler.get_upstream_heads(head):
                 for upstream_node in iter_all_nodes_at_head(
-                    head = upstream_head, 
-                    n_features = self.model_handler.get_n_features_at_head(upstream_head), 
-                    n_tokens = self.cache_handler.n_token
+                    head=upstream_head,
+                    n_features=self.model_handler.get_n_features_at_head(upstream_head),
+                    n_tokens=self.cache_handler.n_token,
                 ):
-
-                    ma = compute_metric_attribution(self.cache_handler, upstream_node, downstream_node)
+                    ma = compute_metric_attribution(
+                        self.cache_handler, upstream_node, downstream_node
+                    )
                     # Add to graph any edges with large MA
                     if ma > self.threshold:
                         self.graph.add_edge(upstream_node, downstream_node)

@@ -22,6 +22,15 @@ class ModelHandler:
     def n_layers(self) -> int:
         return self.model.cfg.n_layers
 
+    def get_sae_for_head(self, head: Head) -> SAE | Transcoder:
+        """Get the SAE for a given head"""
+        if head.head_type == "mlp":
+            return self.transcoders[head.hook_name_in]
+        elif head.head_type == "att":
+            return self.saes[head.hook_name_in]
+        else:
+            raise ValueError(f"Invalid head type: {head.head_type}")
+
     def get_n_features_at_head(self, head: Head) -> int:
         """Get the number of features at a head"""
         # NOTE: W_enc is of shape [d_in, d_sae]
