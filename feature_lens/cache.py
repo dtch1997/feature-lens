@@ -79,7 +79,7 @@ def get_caching_hooks(
         if is_backward:
             hook_name += "_grad"
         # NOTE: our change here!
-        resid_stream = tensor
+        resid_stream = tensor  # tensor.detach()
         # NOTE: end change
         if remove_batch_dim:
             resid_stream = resid_stream[0]
@@ -120,6 +120,30 @@ def get_sae_cache(
     cache_dict, fwd, bwd = model.get_caching_hooks(
         names_filter=lambda name: "sae" in name,
         incl_bwd=True,
+        device=get_device(),  # type: ignore
+    )
+
+    with model.hooks(
+        fwd_hooks=fwd,
+        bwd_hooks=bwd,
+    ):
+        logits = handler.get_logits(model, input=input)
+        metric = handler.get_metric(logits).mean()
+        metric.backward()
+
+    cache = ActivationCache(cache_dict, model)
+    return cache
+
+
+def get_cache(
+    model: Model,
+    handler: DataHandler,
+    input: InputType = "clean",
+    incl_bwd: bool = False,
+) -> ActivationCache:
+    cache_dict, fwd, bwd = model.get_caching_hooks(
+        names_filter=lambda name: True,
+        incl_bwd=incl_bwd,
         device=get_device(),  # type: ignore
     )
 

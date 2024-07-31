@@ -1,4 +1,11 @@
-from projects.leap_sfc.leap.utils import Head, Node, iter_all_heads, iter_upstream_heads, iter_all_nodes_at_head
+from projects.leap_sfc.leap.utils import (
+    Head,
+    Node,
+    iter_all_heads,
+    iter_upstream_heads,
+    iter_all_nodes_at_head,
+)
+
 
 def test_iter_all_heads():
     n_layers = 2
@@ -11,6 +18,7 @@ def test_iter_all_heads():
         Head(1, "mlp"),
     ]
 
+
 def test_iter_upstream_heads():
     head = Head(1, "mlp")
     upstream_heads = list(iter_upstream_heads(head))
@@ -20,6 +28,7 @@ def test_iter_upstream_heads():
         Head(0, "mlp"),
         Head(1, "att"),
     ]
+
 
 def test_iter_all_nodes_at_head():
     head = Head(0, "att")

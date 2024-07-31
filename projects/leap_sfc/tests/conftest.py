@@ -13,9 +13,11 @@ set_device("cpu")
 def model() -> Model:
     return load_model("solu-1l")
 
+
 @pytest.fixture
 def expansion_factor() -> int:
     return 2
+
 
 @pytest.fixture
 def sae(model: Model, expansion_factor: int) -> SAE:
@@ -41,21 +43,22 @@ def sae(model: Model, expansion_factor: int) -> SAE:
     )
     return SAE(cfg)
 
+
 @pytest.fixture
 def transcoder(model: Model, expansion_factor: int) -> Transcoder:
     # TODO: replace with inferece-only transcoder that doesn't have irrelevant config options
     cfg = TranscoderConfig(
         is_transcoder=True,
-        model_name = model.cfg.model_name,
-        hook_point = "blocks.0.ln2",
-        hook_point_layer = 0,
-        hook_point_head_index=None, 
+        model_name=model.cfg.model_name,
+        hook_point="blocks.0.ln2",
+        hook_point_layer=0,
+        hook_point_head_index=None,
         out_hook_point="blocks.0.hook_mlp_out",
         out_hook_point_layer=0,
-        d_in = model.cfg.d_model,
-        d_out = model.cfg.d_model,
-        expansion_factor = expansion_factor,
-        device = get_device(),
+        d_in=model.cfg.d_model,
+        d_out=model.cfg.d_model,
+        expansion_factor=expansion_factor,
+        device=get_device(),
         # irrelevant features
         feature_sampling_method=None,
     )

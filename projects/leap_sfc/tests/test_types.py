@@ -1,8 +1,5 @@
-import pytest
-import torch
-from typing import Literal
-
 from projects.leap_sfc.leap.types import Head, Node, Edge
+
 
 def test_head():
     # Test Head creation
@@ -17,6 +14,7 @@ def test_head():
     head_from_string = Head.from_string("2.att")
     assert head_from_string.layer == 2
     assert head_from_string.head_type == "att"
+
 
 def test_node():
     # Test Node creation
@@ -35,6 +33,7 @@ def test_node():
     assert node_from_string.head_type == "metric"
     assert node_from_string.feature_id == 0
     assert node_from_string.token_pos == 5
+
 
 def test_edge():
     # Test Edge creation

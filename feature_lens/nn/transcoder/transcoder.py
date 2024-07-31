@@ -9,19 +9,21 @@ class Transcoder(SparseAutoencoder):
     """Dummy wrapper around base SAE class"""
 
     cfg: TranscoderConfig
+
+
 class TranscoderConfig(LanguageModelSAERunnerConfig):
     """Dummy wrapper around base config class"""
 
     # Some syntactic sugar to align naming conventions with SAELens
 
-    @property 
+    @property
     def hook_name(self):
         return self.hook_point
-    
+
     @property
     def hook_layer(self):
         return self.hook_point_layer
-    
+
     @property
     def hook_head_index(self):
         return self.hook_point_head_index
