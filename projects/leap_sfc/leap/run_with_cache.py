@@ -53,7 +53,7 @@ def run_with_cache(
 
 
 def get_sae_act_post(
-    sae: SAE, input_act: Float[torch.Tensor, "batch seq d_model"]
+    sae: SAE | Transcoder, input_act: Float[torch.Tensor, "batch seq d_model"]
 ) -> Float[torch.Tensor, "batch seq d_sae"]:
     """Get the post-ReLU activations of the SAE on a given input
 
@@ -69,16 +69,8 @@ def get_sae_act_post(
     return torch.relu(sae_pre_act)
 
 
-def get_transcoder_act_post(
-    transcoder: Transcoder, input_act: Float[torch.Tensor, "batch seq d_model"]
-) -> Float[torch.Tensor, "batch seq d_sae"]:
-    """Get the post-ReLU activations of the transcoder on a given input"""
-    # NOTE: This works out to be the same as the SAE case
-    return get_sae_act_post(transcoder, input_act)
-
-
 def get_sae_act_post_grad_metric(
-    sae: SAE,
+    sae: SAE | Transcoder,
     grad_metric_wrt_output: Float[torch.Tensor, "batch seq d_out"],
 ):
     """Get the gradient of the metric w.r.t the post-ReLU activations of the SAE"""
@@ -87,10 +79,3 @@ def get_sae_act_post_grad_metric(
         sae.W_dec,
         "batch seq d_out, d_sae d_out -> batch seq d_sae",
     )
-
-
-def get_transcoder_act_post_grad_metric(
-    transcoder: Transcoder, input_act: Float[torch.Tensor, "batch seq d_model"]
-) -> Float[torch.Tensor, "batch seq d_sae"]:
-    """Get the gradient of the metric w.r.t the post-ReLU activations of the transcoder"""
-    raise NotImplementedError("Transcoder not yet implemented")

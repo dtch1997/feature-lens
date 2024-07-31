@@ -13,7 +13,7 @@ def test_run_with_cache(model_handler, data_handler, metric_fn):
     run_with_cache(model_handler, data_handler, metric_fn)
 
 
-def test_get_sae_act_post(sae):
+def test_get_sae_act_post_for_sae(sae):
     input_act = torch.randn(1, 4, 512)
     act_post = get_sae_act_post(sae, input_act)
     assert act_post.shape == (1, 4, 1024)
@@ -23,7 +23,7 @@ def test_get_sae_act_post(sae):
     assert torch.allclose(act_post, cache["hook_sae_acts_post"])
 
 
-def test_get_transcoder_act_post(transcoder):
+def test_get_sae_act_post_for_transcoder(transcoder):
     input_act = torch.randn(1, 4, 512)
     act_post = get_sae_act_post(transcoder, input_act)
     assert act_post.shape == (1, 4, 1024)
