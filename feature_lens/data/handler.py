@@ -121,3 +121,36 @@ def build_handler(
             wrong_answer_str_tokens=wrong_answer_str_tokens,  # type: ignore
         ),
     )
+
+
+def build_unpaired_handler(
+    model: Model,
+    text: str,
+) -> DataHandler:
+    # Tokenize the strings
+    all_tokens = model.to_tokens([text])
+    clean_prompt_tokens = all_tokens[:, :-1]
+    correct_answer_tokens = all_tokens[:, -1]
+
+    corrupt_prompt_tokens = clean_prompt_tokens
+    wrong_answer_tokens = correct_answer_tokens
+
+    # Get the string tokens
+    full_str_tokens = model.to_str_tokens([text])
+    clean_str_tokens = [t[:-1] for t in full_str_tokens]
+    answer_str_tokens = [t[-1] for t in full_str_tokens]
+    wrong_answer_str_tokens = answer_str_tokens
+    corrupt_str_tokens = clean_str_tokens
+
+    return DataHandler(
+        clean_prompt_tokens=clean_prompt_tokens,
+        corrupt_prompt_tokens=corrupt_prompt_tokens,
+        correct_answer_tokens=correct_answer_tokens,
+        wrong_answer_tokens=wrong_answer_tokens,
+        str_token_info=TokenInfo(
+            clean_str_tokens=clean_str_tokens,  # type: ignore
+            corrupt_str_tokens=corrupt_str_tokens,  # type: ignore
+            answer_str_tokens=answer_str_tokens,  # type: ignore
+            wrong_answer_str_tokens=wrong_answer_str_tokens,  # type: ignore
+        ),
+    )
