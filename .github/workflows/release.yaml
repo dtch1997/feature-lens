@@ -29,13 +29,13 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: pdm install
-      - name: Build
-        run: pdm build
       - name: Semantic Release
         id: release
         uses: python-semantic-release/python-semantic-release@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build
+        run: pdm build
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         if: steps.release.outputs.released == 'true'
