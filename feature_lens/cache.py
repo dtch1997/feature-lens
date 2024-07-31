@@ -17,7 +17,8 @@ from transformer_lens.hook_points import HookPoint, HookedRootModule
 
 from feature_lens.core.types import Model
 from feature_lens.utils.device import get_device
-from feature_lens.utils.data_handler import DataHandler, InputType
+from feature_lens.data.handler import DataHandler, InputType
+from feature_lens.data.metric import MetricFunction
 
 # Define type aliases
 NamesFilter = Optional[Union[Callable[[str], bool], Sequence[str]]]
@@ -114,35 +115,20 @@ def get_caching_hooks(
     return cache, fwd_hooks, bwd_hooks
 
 
-def get_sae_cache(
-    model: Model, handler: DataHandler, input: InputType = "clean"
-) -> ActivationCache:
-    cache_dict, fwd, bwd = model.get_caching_hooks(
-        names_filter=lambda name: "sae" in name,
-        incl_bwd=True,
-        device=get_device(),  # type: ignore
-    )
-
-    with model.hooks(
-        fwd_hooks=fwd,
-        bwd_hooks=bwd,
-    ):
-        logits = handler.get_logits(model, input=input)
-        metric = handler.get_metric(logits).mean()
-        metric.backward()
-
-    cache = ActivationCache(cache_dict, model)
-    return cache
-
-
 def get_cache(
     model: Model,
     handler: DataHandler,
+    metric_fn: MetricFunction,
+    *,
     input: InputType = "clean",
+    names_filter: NamesFilter = None,
     incl_bwd: bool = False,
 ) -> ActivationCache:
+    if names_filter is None:
+        names_filter = lambda name: True
+
     cache_dict, fwd, bwd = model.get_caching_hooks(
-        names_filter=lambda name: True,
+        names_filter=names_filter,
         incl_bwd=incl_bwd,
         device=get_device(),  # type: ignore
     )
@@ -152,11 +138,30 @@ def get_cache(
         bwd_hooks=bwd,
     ):
         logits = handler.get_logits(model, input=input)
-        metric = handler.get_metric(logits).mean()
+        metric = metric_fn(logits, handler).mean()
         metric.backward()
 
     cache = ActivationCache(cache_dict, model)
     return cache
+
+
+def get_sae_cache(
+    model: Model,
+    handler: DataHandler,
+    metric_fn: MetricFunction,
+    *,
+    input: InputType = "clean",
+    incl_bwd: bool = False,
+) -> ActivationCache:
+    names_filter = lambda name: "sae" in name
+    return get_cache(
+        model,
+        handler,
+        metric_fn,
+        input=input,
+        names_filter=names_filter,
+        incl_bwd=incl_bwd,
+    )
 
 
 # Monkey patch the get_caching_hooks method

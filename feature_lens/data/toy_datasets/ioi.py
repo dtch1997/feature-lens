@@ -1,8 +1,7 @@
-from feature_lens.core.types import Model
-from feature_lens.data.string_handler import StringHandler
+from feature_lens.data.handler import Dataset
 
 
-def make_ioi(model: Model) -> StringHandler:
+def make_ioi() -> Dataset:
     prompt_format = [
         "When John and Mary went to the shops,{} gave the bag to",
         "When Tom and James went to the park,{} gave the ball to",
@@ -29,8 +28,7 @@ def make_ioi(model: Model) -> StringHandler:
     correct_answers = [name for names in name_pairs for name in names]
     wrong_answers = [name for names in name_pairs for name in names[::-1]]
 
-    return StringHandler(
-        model=model,
+    return Dataset(
         clean_prompts=clean_prompts,
         corrupt_prompts=corrupt_prompts,
         answers=correct_answers,
