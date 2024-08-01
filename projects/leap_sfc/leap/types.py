@@ -37,7 +37,7 @@ class Head:
     def hook_name_in(self) -> HookName:
         """Return the (input) hook name associated with this head"""
         if self.head_type == "mlp":
-            return f"blocks.{self.layer}.ln2"
+            return f"blocks.{self.layer}.ln2.hook_normalized"
         elif self.head_type == "att":
             return f"blocks.{self.layer}.attn.hook_z"
         else:  # metric

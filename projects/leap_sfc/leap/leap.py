@@ -4,6 +4,10 @@ import networkx
 
 
 from typing import Iterable
+from .types import Node, Head
+from .cache_handler import CacheHandler
+from .model_handler import ModelHandler
+from .utils import iter_all_nodes_at_head, iter_upstream_heads
 
 
 def compute_direct_path_attribution(
@@ -93,11 +97,11 @@ class LeapAlgo:
             grad /= self.cache_handler.get_layernorm_scale(head.layer)
 
             # TODO: implement batched computation of MA
-            for upstream_head in self.model_handler.get_upstream_heads(head):
+            for upstream_head in iter_upstream_heads(head):
                 for upstream_node in iter_all_nodes_at_head(
                     head=upstream_head,
                     n_features=self.model_handler.get_n_features_at_head(upstream_head),
-                    n_tokens=self.cache_handler.n_token,
+                    n_tokens=self.cache_handler.seq_len,
                 ):
                     ma = compute_metric_attribution(
                         self.cache_handler, upstream_node, downstream_node

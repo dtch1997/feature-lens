@@ -1,4 +1,5 @@
-from projects.leap_sfc.leap.types import ActivationCache, Vector, Node
+from projects.leap_sfc.leap.types import ActivationCache, Vector, Node, Head
+from feature_lens.data.handler import InputType
 
 
 class CacheHandler:
@@ -14,23 +15,53 @@ class CacheHandler:
         self.clean_cache = clean_cache
         self.corrupt_cache = corrupt_cache
 
+        # TODO: validate that clean and corrupt cache have same shapes
+
     @property
-    def n_token(self) -> int:
-        """Returns the number of token positions in the cached activations"""
-        raise NotImplementedError("Need to implement n_token")
+    def seq_len(self) -> int:
+        """Returns the number of tokens in the cached activations"""
+        return self.clean_cache["hook_embed"].shape[1]
 
-    def get_layernorm_scale(layer: int) -> Vector:
+    def get_cache(self, input: InputType = "clean") -> ActivationCache:
+        """Returns the cache"""
+        if input == "clean":
+            return self.clean_cache
+        elif input == "corrupt":
+            return self.corrupt_cache
+
+    def get_layernorm_scale(self, head: Head, input: InputType = "clean") -> Vector:
         """Returns the layernorm scale for a layer"""
-        raise NotImplementedError("Need to implement get_layernorm_scale")
+        # TODO: check w/ Jacob Drori which layernorm scale to use?
+        if head.head_type == "mlp":
+            return self.get_cache(input)[f"blocks.{head.layer}.ln2.hook_scale"]
+        elif head.head_type == "att":
+            return self.get_cache(input)[f"blocks.{head.layer}.ln1.hook_scale"]
+        else:
+            raise ValueError(f"Unknown head type: {head.head_type}")
 
-    def get_act(self, node: Node, corrupt: bool = False) -> Vector:
+    def get_act(self, node: Node, input: InputType = "clean") -> Vector:
         """Returns the activation of a node"""
-        raise NotImplementedError("Need to implement get_activation")
+        if node.head_type == "mlp":
+            return self.get_cache(input)[node.hook_name_in + ".hook_sae_acts_post"]
+        elif node.head_type == "att":
+            return self.get_cache(input)[node.hook_name_in + ".hook_sae_acts_post"]
+        else:
+            raise ValueError(f"Unknown head type: {node.head_type}")
 
-    def get_grad_metric_wrt_act(self, node: Node, corrupt: bool = False) -> Vector:
+    def get_grad_metric_wrt_act(self, node: Node, input: InputType = "clean") -> Vector:
         """Returns the gradient of the metric with respect to the node"""
-        raise NotImplementedError("Need to implement get_metric_grad")
+        raise NotImplementedError("Need to implement get_grad_metric_wrt_act")
+        if node.head_type == "mlp":
+            return self.get_cache(input)[
+                node.hook_name_in + ".hook_sae_acts_post_grad_output"
+            ]
+        elif node.head_type == "att":
+            return self.get_cache(input)[
+                node.hook_name_in + ".hook_sae_acts_post_grad_output"
+            ]
+        else:
+            raise ValueError(f"Unknown head type: {node.head_type}")
 
-    def get_grad_act_wrt_input(self, node: Node, corrupt: bool = False) -> Vector:
+    def get_grad_act_wrt_input(self, node: Node, input: InputType = "clean") -> Vector:
         """Returns the gradient of the node with respect to its head input"""
         raise NotImplementedError("Need to implement get_grad_wrt_input")

@@ -1,6 +1,6 @@
 import torch
 
-from einops import einsum
+from einops import einsum, rearrange
 from feature_lens.data.handler import DataHandler, InputType
 from feature_lens.data.metric import MetricFunction
 from feature_lens.cache import get_cache
@@ -16,10 +16,11 @@ def run_with_cache(
     metric_fn: MetricFunction,
     input: InputType = "clean",
 ) -> ActivationCache:
-    """Runs the model on some data, populating a cache"""
-    # TODO: implement hooks to get cached activations
-    # TODO: implement running the model on the data
+    """Runs the model on some data, populating a cache
 
+    In order to get the cache for SAEs, we do not actually splice those SAEs in;
+    rather, we just compute the SAE activations and gradients analytically
+    """
     # First, run the model with cache as per normal
     # to get the activations and gradients at the model's hook points
     cache = get_cache(
@@ -34,7 +35,7 @@ def run_with_cache(
         input_act = cache[head.hook_name_in]
         sae = model_handler.get_sae_for_head(head)
         act_post = get_sae_act_post(sae, input_act)
-        sae_act_post_hook_name = head.hook_name_in + ".hook_sae_act_post"
+        sae_act_post_hook_name = head.hook_name_in + ".hook_sae_acts_post"
         cache.cache_dict[sae_act_post_hook_name] = act_post
 
     # To get node gradients (w.r.t metric) for a head:
@@ -45,7 +46,7 @@ def run_with_cache(
         sae = model_handler.get_sae_for_head(head)
         grad_metric_wrt_act = get_sae_act_post_grad_metric(sae, grad_metric_wrt_output)
         sae_grad_metric_wrt_act_hook_name = (
-            head.hook_name_out + ".hook_sae_act_post_grad"
+            head.hook_name_out + ".hook_sae_acts_post_grad"
         )
         cache.cache_dict[sae_grad_metric_wrt_act_hook_name] = grad_metric_wrt_act
 
@@ -60,13 +61,37 @@ def get_sae_act_post(
     Apply the SAE's weights and biases to the input, then apply ReLU.
     """
     # NOTE: currently hardcoded to matmul and ReLU
-    sae_pre_act = (
-        einsum(
-            input_act, sae.W_enc, "batch seq d_model, d_model d_sae -> batch seq d_sae"
+
+    if len(input_act.shape) == 3:
+        sae_pre_act = (
+            einsum(
+                input_act,
+                sae.W_enc,
+                "batch seq d_model, d_model d_sae -> batch seq d_sae",
+            )
+            + sae.b_enc
         )
-        + sae.b_enc
-    )
-    return torch.relu(sae_pre_act)
+        return torch.relu(sae_pre_act)
+
+    elif len(input_act.shape) == 4:
+        # Concatenate the heads together
+        input_act = rearrange(
+            input_act, "batch seq n_head d_head -> batch seq (n_head d_head)"
+        )
+        sae_pre_act = (
+            einsum(
+                input_act,
+                sae.W_enc,
+                "batch seq d_model, d_model d_sae -> batch seq d_sae",
+            )
+            + sae.b_enc
+        )
+        return torch.relu(sae_pre_act)
+
+    else:
+        raise ValueError(
+            f"Expected 3D or 4D input; got input of shape {input_act.shape}"
+        )
 
 
 def get_sae_act_post_grad_metric(

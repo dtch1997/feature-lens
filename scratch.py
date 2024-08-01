@@ -1,7 +1,7 @@
-from feature_lens.utils.neuronpedia import get_feature_info
+from feature_lens.utils.load_pretrained import load_model
 
-if __name__ == "__main__":
-    feature_info = get_feature_info("gpt2-small", "0-res-jb", 0)
-    # print(feature_info)
-    print(feature_info.keys())
-    print(feature_info["activations"][0].keys())
+model = load_model("solu-1l")
+print(model)
+
+_, cache = model.run_with_cache("hello, world")
+print(cache["hook_embed"].shape)
