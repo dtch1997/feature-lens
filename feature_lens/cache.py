@@ -80,7 +80,7 @@ def get_caching_hooks(
         if is_backward:
             hook_name += "_grad"
         # NOTE: our change here!
-        resid_stream = tensor
+        resid_stream = tensor  # tensor.detach()
         # NOTE: end change
         if remove_batch_dim:
             resid_stream = resid_stream[0]
