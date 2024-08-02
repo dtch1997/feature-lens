@@ -72,7 +72,7 @@ def transcoder(model: Model, expansion_factor: int) -> Transcoder:
     cfg = TranscoderConfig(
         is_transcoder=True,
         model_name=model.cfg.model_name,
-        hook_point="blocks.0.ln2",
+        hook_point="blocks.0.ln2.hook_normalized",
         hook_point_layer=0,
         hook_point_head_index=None,
         out_hook_point="blocks.0.hook_mlp_out",
@@ -81,8 +81,6 @@ def transcoder(model: Model, expansion_factor: int) -> Transcoder:
         d_out=model.cfg.d_model,
         expansion_factor=expansion_factor,
         device=get_device(),
-        # irrelevant features
-        feature_sampling_method=None,
     )
     return Transcoder(cfg)
 
@@ -90,7 +88,7 @@ def transcoder(model: Model, expansion_factor: int) -> Transcoder:
 @pytest.fixture()
 def model_handler(model: Model, sae: SAE, transcoder: Transcoder):
     return ModelHandler(
-        model,
+        model,  # type: ignore
         {sae.cfg.hook_name: sae},
         {transcoder.cfg.hook_name: transcoder},
     )

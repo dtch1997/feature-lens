@@ -1,10 +1,15 @@
+# type: ignore
+
 from __future__ import annotations
 
 import networkx
+import torch
 
-
+from jaxtyping import Float
 from typing import Iterable
-from .types import Node, Head
+from transformer_lens import ActivationCache
+
+from .types import Node, Head, SAE, Transcoder
 from .cache_handler import CacheHandler
 from .model_handler import ModelHandler
 from .utils import iter_all_nodes_at_head, iter_upstream_heads
@@ -56,12 +61,25 @@ def compute_metric_attribution(
     return dpa * metric_grad
 
 
-def compute_grad_wrt_input(
-    model_handler: ModelHandler,
-    cache_handler: CacheHandler,
-    node: Node,
-):
-    raise NotImplementedError("Need to implement compute_grad_wrt_input")
+def get_sae_act_post_grad_input(
+    sae: SAE | Transcoder,
+    cache: ActivationCache,
+) -> Float[torch.Tensor, "batch seq d_sae"]:
+    """Get the gradient of the post-ReLU activations of the SAE w.r.t the input to that head
+
+    Remarks
+    - We cannot cache these gradients due to memory concerns
+    - To avoid blowup in memory, the features under consideration should be filtered
+        - e.g. gradients for non-active features will be zero
+    """
+
+    if isinstance(sae, SAE):
+        # Attention-out SAE
+        # NOTE: currently implement only the OV step
+        raise NotImplementedError("Need to implement OV step")
+
+    elif isinstance(sae, Transcoder):
+        return sae.W_enc
 
 
 class LeapAlgo:
@@ -90,7 +108,7 @@ class LeapAlgo:
     def leap_step(self, head: Head):
         for downstream_node in self.iter_important_nodes_at_head(head):
             # Compute the gradient d(node_act)/d(head_input)
-            grad = compute_grad_wrt_input(
+            grad = get_sae_act_post_grad_input(
                 self.model_handler, self.cache_handler, downstream_node
             )
 
@@ -115,6 +133,10 @@ class LeapAlgo:
             # - Prune by top k
 
     def run_leap(self):
+        """Computes edge attribution scores for every pair of nodes in the model
+
+        At the end, the graph will contain selected edges
+        """
         for layer in reversed(self.model_handler.n_layers):
             for head_type in ["mlp", "att"]:
                 # NOTE: "att" currently handles 'OV' circuit only

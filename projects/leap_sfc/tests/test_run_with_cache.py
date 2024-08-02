@@ -37,16 +37,17 @@ def test_get_sae_act_post_for_transcoder(transcoder: Transcoder):
 
 def test_get_act_post_grad_metric_for_sae(sae: SAE):
     # Calculate the gradient using backpropagation
+    sae.turn_on_forward_pass_hook_z_reshaping()
+    input_act = torch.randn(1, 4, 8, 64)
     cache_dict, fwd, bwd = sae.get_caching_hooks(incl_bwd=True)
     with sae.hooks(
         fwd_hooks=fwd,
         bwd_hooks=bwd,
     ):
-        input = torch.randn(1, 4, 512)
-        output = sae(input)
+        output = sae(input_act)
         metric = output.sum()
         metric.backward()
-
+    sae.turn_off_forward_pass_hook_z_reshaping()
     expected_grad_metric_wrt_act = cache_dict["hook_sae_acts_post_grad"]
 
     # Calculate the analytic gradient
@@ -60,13 +61,13 @@ def test_get_act_post_grad_metric_for_sae(sae: SAE):
 
 def test_get_act_post_grad_metric_for_transcoder(transcoder: Transcoder):
     # Calculate the gradient using backpropagation
+    input_act = torch.randn(1, 4, 512)
     cache_dict, fwd, bwd = transcoder.get_caching_hooks(incl_bwd=True)
     with transcoder.hooks(
         fwd_hooks=fwd,
         bwd_hooks=bwd,
     ):
-        input = torch.randn(1, 4, 512)
-        output = transcoder(input)[0]
+        output = transcoder(input_act)[0]
         metric = output.sum()
         metric.backward()
 

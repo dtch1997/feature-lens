@@ -1,6 +1,14 @@
 from projects.leap_sfc.leap.types import ActivationCache, Vector, Node, Head
 from feature_lens.data.handler import InputType
 
+SAE_NODE_ACT_NAME = "hook_sae_acts_post"  # post-ReLU activations of SAE
+SAE_NODE_GRAD_OUT_NAME = (
+    "hook_sae_acts_post_grad"  # gradient of metric w.r.t node activation
+)
+SAE_NODE_GRAD_IN_NAME = (
+    "hook_sae_acts_post_grad_input"  # gradient of node activation w.r.t input
+)
+
 
 class CacheHandler:
     """Handles a clean and corrupt cache
@@ -32,6 +40,7 @@ class CacheHandler:
     def get_layernorm_scale(self, head: Head, input: InputType = "clean") -> Vector:
         """Returns the layernorm scale for a layer"""
         # TODO: check w/ Jacob Drori which layernorm scale to use?
+        # Before or after?
         if head.head_type == "mlp":
             return self.get_cache(input)[f"blocks.{head.layer}.ln2.hook_scale"]
         elif head.head_type == "att":
@@ -41,27 +50,16 @@ class CacheHandler:
 
     def get_act(self, node: Node, input: InputType = "clean") -> Vector:
         """Returns the activation of a node"""
-        if node.head_type == "mlp":
-            return self.get_cache(input)[node.hook_name_in + ".hook_sae_acts_post"]
-        elif node.head_type == "att":
-            return self.get_cache(input)[node.hook_name_in + ".hook_sae_acts_post"]
+        if node.head_type in ("mlp", "att"):
+            return self.get_cache(input)[node.hook_name_in + f".{SAE_NODE_ACT_NAME}"]
         else:
             raise ValueError(f"Unknown head type: {node.head_type}")
 
     def get_grad_metric_wrt_act(self, node: Node, input: InputType = "clean") -> Vector:
         """Returns the gradient of the metric with respect to the node"""
-        raise NotImplementedError("Need to implement get_grad_metric_wrt_act")
-        if node.head_type == "mlp":
+        if node.head_type in ("mlp", "att"):
             return self.get_cache(input)[
-                node.hook_name_in + ".hook_sae_acts_post_grad_output"
-            ]
-        elif node.head_type == "att":
-            return self.get_cache(input)[
-                node.hook_name_in + ".hook_sae_acts_post_grad_output"
+                node.hook_name_out + f".{SAE_NODE_GRAD_OUT_NAME}"
             ]
         else:
             raise ValueError(f"Unknown head type: {node.head_type}")
-
-    def get_grad_act_wrt_input(self, node: Node, input: InputType = "clean") -> Vector:
-        """Returns the gradient of the node with respect to its head input"""
-        raise NotImplementedError("Need to implement get_grad_wrt_input")
