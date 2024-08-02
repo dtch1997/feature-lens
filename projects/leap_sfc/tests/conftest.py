@@ -81,6 +81,8 @@ def transcoder(model: Model, expansion_factor: int) -> Transcoder:
         d_out=model.cfg.d_model,
         expansion_factor=expansion_factor,
         device=get_device(),
+        # irrelevant
+        feature_sampling_method=None,  # type: ignore
     )
     return Transcoder(cfg)
 
