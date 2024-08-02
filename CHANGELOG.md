@@ -1,5 +1,43 @@
 # CHANGELOG
 
+## v0.2.0 (2024-08-02)
+
+### Chore
+
+* chore: run semantic release before build ([`5be4b71`](https://github.com/dtch1997/feature-lens/commit/5be4b71cd0595c371b0250150cddd10ca363eed0))
+
+### Feature
+
+* feat: foundations for LEAP algorithm (#4)
+
+* add skeleton implementation of LEAP
+
+* add tests for model handler
+
+* add utils
+
+* chore: fix lint
+
+* chore: fix lint
+
+* BREAKING: update feature-lens API
+
+* WIP implement run_with_cache
+
+* fix: test
+
+* implement run with cache
+
+* wip
+
+* tests passing: test_run_with_cache.py
+
+* fix lint
+
+---------
+
+Co-authored-by: Daniel Tan &lt;dtch1997@users.noreply.github.com&gt; ([`42f20bc`](https://github.com/dtch1997/feature-lens/commit/42f20bcb6abcfc92df494626626e7b7a1532b368))
+
 ## v0.1.1 (2024-07-31)
 
 ### Chore
