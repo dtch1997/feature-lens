@@ -75,7 +75,14 @@ def get_sae_act_post_grad_input(
 
     if isinstance(sae, SAE):
         # Attention-out SAE
+
         # NOTE: currently implement only the OV step
+        # Conceptually, this is just (W_enc row) @ W_V @ attention_pattern
+        # - attention pattern from the clean cache
+        # - W_enc from the SAE
+        # - W_V from the attention head
+
+        # TODO: Q, K steps
         raise NotImplementedError("Need to implement OV step")
 
     elif isinstance(sae, Transcoder):
