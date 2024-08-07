@@ -1,5 +1,8 @@
-from projects.leap_sfc.leap.types import ActivationCache, Vector, Node, Head
+from projects.leap_sfc.leap.types import ActivationCache, Head
 from feature_lens.data.handler import InputType
+from jaxtyping import Float
+
+import torch
 
 SAE_NODE_ACT_NAME = "hook_sae_acts_post"  # post-ReLU activations of SAE
 SAE_NODE_GRAD_OUT_NAME = (
@@ -37,10 +40,10 @@ class CacheHandler:
         elif input == "corrupt":
             return self.corrupt_cache
 
-    def get_layernorm_scale(self, head: Head, input: InputType = "clean") -> Vector:
-        """Returns the layernorm scale for a layer"""
-        # TODO: check w/ Jacob Drori which layernorm scale to use?
-        # Before or after?
+    def get_layernorm_scale(
+        self, head: Head, input: InputType = "clean"
+    ) -> Float[torch.Tensor, "batch seq"]:
+        """Returns the cached layernorm scale at the layernorm after a head"""
         if head.head_type == "mlp":
             return self.get_cache(input)[f"blocks.{head.layer}.ln2.hook_scale"]
         elif head.head_type == "att":
@@ -48,18 +51,22 @@ class CacheHandler:
         else:
             raise ValueError(f"Unknown head type: {head.head_type}")
 
-    def get_act(self, node: Node, input: InputType = "clean") -> Vector:
-        """Returns the activation of a node"""
-        if node.head_type in ("mlp", "att"):
-            return self.get_cache(input)[node.hook_name_in + f".{SAE_NODE_ACT_NAME}"]
+    def get_act(
+        self, head: Head, input: InputType = "clean"
+    ) -> Float[torch.Tensor, "batch seq d_sae"]:
+        """Returns the activation of all nodes at a head"""
+        if head.head_type in ("mlp", "att"):
+            return self.get_cache(input)[head.hook_name_in + f".{SAE_NODE_ACT_NAME}"]
         else:
-            raise ValueError(f"Unknown head type: {node.head_type}")
+            raise ValueError(f"Unknown head type: {head.head_type}")
 
-    def get_grad_metric_wrt_act(self, node: Node, input: InputType = "clean") -> Vector:
-        """Returns the gradient of the metric with respect to the node"""
-        if node.head_type in ("mlp", "att"):
+    def get_grad_metric_wrt_act(
+        self, head: Head, input: InputType = "clean"
+    ) -> Float[torch.Tensor, "batch seq d_sae"]:
+        """Returns the gradient of the metric with respect to all nodes at a head"""
+        if head.head_type in ("mlp", "att"):
             return self.get_cache(input)[
-                node.hook_name_out + f".{SAE_NODE_GRAD_OUT_NAME}"
+                head.hook_name_out + f".{SAE_NODE_GRAD_OUT_NAME}"
             ]
         else:
-            raise ValueError(f"Unknown head type: {node.head_type}")
+            raise ValueError(f"Unknown head type: {head.head_type}")
