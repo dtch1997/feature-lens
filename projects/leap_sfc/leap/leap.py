@@ -124,13 +124,29 @@ def get_sae_act_post_grad_head_input(
 
 
 def construct_sparse_grad_output_tensor_for_mlp(
-    W_dec: Float[torch.Tensor, "d_model d_sae"],
+    W_dec: Float[torch.Tensor, "d_sae d_model"],
     input_act: Float[torch.Tensor, "batch seq d_sae"],
 ) -> Float[SparseTensor, "batch key_seq up_d_sae d_model"]:
     """Construct a sparse tensor of d(head_output)/d(node_act) for MLP transcoders"""
-    raise NotImplementedError(
-        "Need to implement construct_sparse_grad_output_tensor_for_mlp"
+
+    batch, seq, d_sae = input_act.shape
+    d_model = W_dec.shape[1]
+
+    # Find nonzero activations
+    nonzero_mask = input_act != 0
+    nonzero_indices = nonzero_mask.nonzero()
+
+    # Get the corresponding rows from W_enc
+    values = W_dec[:, [idx[2] for idx in nonzero_indices]]
+
+    # Create sparse tensor
+    sparse_tensor = torch.sparse_coo_tensor(
+        indices=nonzero_indices.t(),
+        values=values.t(),
+        size=(batch, seq, d_sae, d_model),
     )
+
+    return sparse_tensor
 
 
 def construct_sparse_grad_output_tensor_for_att(
