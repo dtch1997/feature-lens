@@ -77,9 +77,11 @@ def get_sae_act_post(
     # NOTE: currently hardcoded to matmul and ReLU
 
     if len(input_act.shape) == 3:
+        # MLP transcoder
+        assert isinstance(sae, Transcoder), f"Expected Transcoder; got {type(sae)}"
         sae_pre_act = (
             einsum(
-                input_act,
+                input_act - sae.b_dec,
                 sae.W_enc,
                 "batch seq d_model, d_model d_sae -> batch seq d_sae",
             )
@@ -88,19 +90,12 @@ def get_sae_act_post(
         return torch.relu(sae_pre_act)
 
     elif len(input_act.shape) == 4:
-        # Concatenate the heads together
-        input_act = rearrange(
-            input_act, "batch seq n_head d_head -> batch seq (n_head d_head)"
-        )
-        sae_pre_act = (
-            einsum(
-                input_act,
-                sae.W_enc,
-                "batch seq d_model, d_model d_sae -> batch seq d_sae",
-            )
-            + sae.b_enc
-        )
-        return torch.relu(sae_pre_act)
+        # Attention-out SAE
+        assert isinstance(sae, SAE), f"Expected SAE; got {type(sae)}"
+        sae.turn_on_forward_pass_hook_z_reshaping()
+        feature_acts = sae.encode(input_act)
+        sae.turn_off_forward_pass_hook_z_reshaping()
+        return feature_acts
 
     else:
         raise ValueError(

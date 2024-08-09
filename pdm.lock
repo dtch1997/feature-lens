@@ -5,10 +5,10 @@
 groups = ["default", "test"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:26629f35ab1cd64e1eb6361235ae72fc987d1e00412b4d5ebc8d7533211d8a07"
+content_hash = "sha256:bfb3866104ea071c3c1409dc8d3fdd11e3dd85f2f90ac9ba2369ad5a9b569127"
 
 [[metadata.targets]]
-requires_python = ">=3.11"
+requires_python = "==3.11.*"
 
 [[package]]
 name = "accelerate"
@@ -720,6 +720,17 @@ dependencies = [
 files = [
     {file = "docker-pycreds-0.4.0.tar.gz", hash = "sha256:6ce3270bcaf404cc4c3e27e4b6c70d3521deae82fb508767870fdbf772d584d4"},
     {file = "docker_pycreds-0.4.0-py2.py3-none-any.whl", hash = "sha256:7266112468627868005106ec19cd0d722702d2b7d5912a28e19b826c3d37af49"},
+]
+
+[[package]]
+name = "docstring-parser"
+version = "0.16"
+requires_python = ">=3.6,<4.0"
+summary = "Parse Python docstrings in reST, Google and Numpydoc format"
+groups = ["default"]
+files = [
+    {file = "docstring_parser-0.16-py3-none-any.whl", hash = "sha256:bf0a1387354d3691d102edef7ec124f219ef639982d096e26e3b60aeffa90637"},
+    {file = "docstring_parser-0.16.tar.gz", hash = "sha256:538beabd0af1e2db0146b6bd3caa526c35a34d61af9fd2887f3a8a27a739aa6e"},
 ]
 
 [[package]]
@@ -3129,6 +3140,21 @@ groups = ["default"]
 files = [
     {file = "shellingham-1.5.4-py2.py3-none-any.whl", hash = "sha256:7ecfff8f2fd72616f7481040475a65b2bf8af90a56c89140852d1120324e8686"},
     {file = "shellingham-1.5.4.tar.gz", hash = "sha256:8dbca0739d487e5bd35ab3ca4b36e11c4078f3a234bfce294b0a0291363404de"},
+]
+
+[[package]]
+name = "simple-parsing"
+version = "0.1.5"
+requires_python = ">=3.7"
+summary = "A small utility for simplifying and cleaning up argument parsing scripts."
+groups = ["default"]
+dependencies = [
+    "docstring-parser~=0.15",
+    "typing-extensions>=4.5.0",
+]
+files = [
+    {file = "simple_parsing-0.1.5-py3-none-any.whl", hash = "sha256:46f35ed7002f9bb25dca3a49eac491cc78d2140e4adcbe156225ae643c2874ea"},
+    {file = "simple_parsing-0.1.5.tar.gz", hash = "sha256:d26ac15be5173cf28174e171a68153c11e462ad2cb3c23d3ad8634b00719d1fc"},
 ]
 
 [[package]]
