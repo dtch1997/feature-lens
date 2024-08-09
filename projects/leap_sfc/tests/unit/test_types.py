@@ -18,14 +18,14 @@ def test_head():
 
 def test_node():
     # Test Node creation
-    node = Node(11, "attn", 23421, 15)
+    node = Node(11, "att", 23421, 15)
     assert node.layer == 11
-    assert node.head_type == "attn"
+    assert node.head_type == "att"
     assert node.feature_id == 23421
     assert node.token_pos == 15
 
     # Test Node to_string method
-    assert node.to_string() == "11.attn.23421.15"
+    assert node.to_string() == "11.att.23421.15"
 
     # Test Node from_string method
     node_from_string = Node.from_string("12.metric.0.5")
