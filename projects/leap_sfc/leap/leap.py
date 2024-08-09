@@ -41,15 +41,21 @@ def construct_sparse_grad_input_tensor_for_mlp(
     nonzero_mask = input_act != 0
     nonzero_indices = nonzero_mask.nonzero()
 
-    # Add key seq dimension
+    # Here, we add a key_seq dimension to the tensor
+    # so that the output tensor is [batch, query_seq, d_sae, key_seq, d_model]
+    # This is to be consistent with the attention case
+
+    # Concretely, this means that we need to extend the input_act tensor as follows:
     # [batch, query_seq, d_sae] -> [batch, query_seq, d_sae, key_seq]
     # In practice, just do this by repeating the query_seq dimension
+    # since MLP do not mix token positions, gradient doesn't flow between different positions
     nonzero_indices = torch.cat(
         [nonzero_indices, nonzero_indices[:, 1].unsqueeze(1)], dim=1
     )  # [n_nonzero, 4]
+    feature_indices = nonzero_indices[:, 2]  # [n_nonzero]
 
     # Get the corresponding rows from W_enc
-    Wenc_values = W_enc[:, [idx[2] for idx in nonzero_indices]]  # [d_model, n_nonzero]
+    Wenc_values = W_enc[:, feature_indices]  # [d_model, n_nonzero]
 
     # Create sparse tensor
     sparse_tensor = torch.sparse_coo_tensor(
@@ -131,13 +137,10 @@ def get_sae_act_post_grad_head_input(
 
     if downstream_head.head_type == "att":
         # Attention-out SAE
-        # NOTE: This will be encoder weights, multiplied by W_V
-        sae = model_handler.get_sae_for_head(downstream_head)
-        W_enc = sae.W_enc
+        W_enc = model_handler.get_sae_for_head(downstream_head).W_enc
         W_V = model_handler.blocks[downstream_head.layer].attn.W_V
-        # Hackily get the attention pattern
         attn_pattern = cache_handler.get_cache(downstream_head, "clean")[
-            "blocks.0.attn.hook_pattern"
+            f"blocks.{downstream_head.layer}.attn.hook_pattern"
         ]
         input_act = cache_handler.get_act(downstream_head)
         return construct_sparse_grad_input_tensor_for_att(
@@ -145,12 +148,15 @@ def get_sae_act_post_grad_head_input(
         )
 
     elif downstream_head.head_type == "mlp":
-        W_enc = model_handler.get_sae_for_head(
-            downstream_head
-        ).W_enc  # [d_model, d_sae]
-        # Get only the active features
-        input_act = cache_handler.get_act(downstream_head)  # [batch, seq, d_sae]
+        W_enc = model_handler.get_sae_for_head(downstream_head).W_enc
+        input_act = cache_handler.get_act(downstream_head)
         return construct_sparse_grad_input_tensor_for_mlp(W_enc, input_act)
+
+    elif downstream_head.head_type == "q":
+        raise NotImplementedError("Q circuit not yet implemented")
+
+    elif downstream_head.head_type == "k":
+        raise NotImplementedError("K circuit not yet implemented")
 
     else:
         raise ValueError(f"Unknown head type: {downstream_head.head_type}")
@@ -168,9 +174,10 @@ def construct_sparse_grad_output_tensor_for_mlp(
     # Find nonzero activations
     nonzero_mask = input_act != 0
     nonzero_indices = nonzero_mask.nonzero()  # [n_nonzero, 3]
+    feature_indices = nonzero_indices[:, 2]  # [n_nonzero]
 
     # Get the corresponding rows from W_dec
-    values = W_dec[[idx[2] for idx in nonzero_indices], :]  # [n_nonzero, d_model]
+    values = W_dec[feature_indices, :]  # [n_nonzero, d_model]
 
     # Create sparse tensor
     sparse_tensor = torch.sparse_coo_tensor(
@@ -198,9 +205,10 @@ def construct_sparse_grad_output_tensor_for_att(
     # Find nonzero activations
     nonzero_mask = input_act != 0
     nonzero_indices = nonzero_mask.nonzero()  # [n_nonzero, 3]
+    feature_indices = nonzero_indices[:, 2]  # [n_nonzero]
 
     # Get the corresponding rows from W_dec
-    values = W[[idx[2] for idx in nonzero_indices], :]  # [n_nonzero, d_model]
+    values = W[feature_indices, :]  # [n_nonzero, d_model]
 
     # Create sparse tensor
     sparse_tensor = torch.sparse_coo_tensor(
@@ -226,8 +234,6 @@ def get_sae_act_post_grad_head_output(
     """
     if upstream_head.head_type == "att":
         # Attention-out SAE
-        # NOTE: This will be decoder weights, multiplied by W_V
-        # NOTE: We need to multiply the W_V matrix here manually
         sae = model_handler.get_sae_for_head(upstream_head)
         W_dec = sae.W_dec
         W_O = model_handler.model.blocks[upstream_head.layer].attn.W_O
@@ -236,10 +242,15 @@ def get_sae_act_post_grad_head_output(
 
     elif upstream_head.head_type == "mlp":
         W_dec = model_handler.get_sae_for_head(upstream_head).W_dec  # [d_sae, d_model]
-        # Get only the active features
         input_act = cache_handler.get_act(upstream_head)  # [batch, seq, d_sae]
         sparse_tensor = construct_sparse_grad_output_tensor_for_mlp(W_dec, input_act)
         return sparse_tensor
+
+    elif upstream_head.head_type == "q":
+        raise NotImplementedError("Q circuit not yet implemented")
+
+    elif upstream_head.head_type == "k":
+        raise NotImplementedError("K circuit not yet implemented")
 
     else:
         raise ValueError(f"Unknown head type: {upstream_head.head_type}")
