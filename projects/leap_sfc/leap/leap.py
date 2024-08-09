@@ -85,22 +85,21 @@ def construct_sparse_grad_input_tensor_for_att(
     n_head, d_head, d_model = W_V.shape
     batch, n_head, query_seq, key_seq = attn_pattern.shape
 
-    # Find nonzero activations
-    nonzero_mask = input_act != 0
-    nonzero_indices = nonzero_mask.nonzero()
+    # TODO: compute the gradient somehow
 
-    # Now, compute the gradient
-    Wv_mul_pattern = einsum(
-        W_V,
-        attn_pattern,
-        "n_head d_head d_model, batch n_head query_seq key_seq -> batch query_seq key_seq d_model",
+    # Wenc_values: [d_model, n_nonzero]
+    Wenc_values = None
+    # nonzero_indices: [n_nonzero, 4]
+    nonzero_indices = None
+
+    # Create sparse tensor
+    sparse_tensor = torch.sparse_coo_tensor(
+        indices=nonzero_indices.t(),
+        values=Wenc_values.t(),
+        size=(batch, seq, d_sae, seq, d_model),
     )
 
-    # Get the corresponding rows from W_enc
-    # Wenc_values = W_enc[:, :, [idx[2] for idx in nonzero_indices]] # [n_head, d_head, n_nonzero]
-    # Wenc_values = rearrange(Wenc_values, 'n_head d_head n_nonzero -> (n_head d_head) n_nonzero') # [d_model, n_nonzero]
-
-    raise NotImplementedError("Need to implement construct_sparse_grad_tensor_for_att")
+    return sparse_tensor
 
 
 def get_sae_act_post_grad_head_input(
