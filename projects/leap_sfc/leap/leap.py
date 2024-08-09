@@ -85,21 +85,33 @@ def construct_sparse_grad_input_tensor_for_att(
     n_head, d_head, d_model = W_V.shape
     batch, n_head, query_seq, key_seq = attn_pattern.shape
 
-    # TODO: compute the gradient somehow
+    nonzero_indices = input_act != 0
+    nonzero_indices = nonzero_indices.nonzero()  # [n_nonzero, 3]
 
-    # Wenc_values: [d_model, n_nonzero]
-    Wenc_values = None
-    # nonzero_indices: [n_nonzero, 4]
-    nonzero_indices = None
+    example_indices = nonzero_indices[:, 0]  # [n_nonzero]
+    feature_indices = nonzero_indices[:, 2]  # [n_nonzero]
+    token_indices = nonzero_indices[:, 1]  # [n_nonzero]
+
+    Wenc_values = W_enc[:, :, feature_indices]  # [n_head, d_head, n_nonzero]
+    pattern_values = attn_pattern[
+        example_indices, :, token_indices, :
+    ]  # [n_nonzero, n_head, key_seq]
+
+    grad = einsum(
+        Wenc_values,
+        pattern_values,
+        W_V,
+        "n_head d_head n_nonzero, n_nonzero n_head key_seq, n_head d_head d_model -> n_nonzero key_seq d_model",
+    )
 
     # Create sparse tensor
     sparse_tensor = torch.sparse_coo_tensor(
         indices=nonzero_indices.t(),
-        values=Wenc_values.t(),
-        size=(batch, seq, d_sae, seq, d_model),
+        values=grad,
+        size=(batch, query_seq, d_sae, key_seq, d_model),
     )
 
-    return sparse_tensor
+    return sparse_tensor.coalesce()
 
 
 def get_sae_act_post_grad_head_input(
