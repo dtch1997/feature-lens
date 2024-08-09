@@ -81,7 +81,7 @@ def get_sae_act_post(
         assert isinstance(sae, Transcoder), f"Expected Transcoder; got {type(sae)}"
         sae_pre_act = (
             einsum(
-                input_act - sae.b_dec,
+                input_act - sae.b_dec.to(input_act.device),
                 sae.W_enc,
                 "batch seq d_model, d_model d_sae -> batch seq d_sae",
             )
