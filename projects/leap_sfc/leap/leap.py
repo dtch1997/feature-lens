@@ -21,8 +21,10 @@ SparseTensor = torch.Tensor
 
 def construct_sparse_grad_input_tensor_for_mlp(
     W_enc: Float[torch.Tensor, "d_model d_sae"],
-    input_act: Float[torch.Tensor, "batch seq d_sae"],
-) -> Float[SparseTensor, "batch seq d_sae d_model"]:
+    input_act: Float[torch.Tensor, "batch query_seq d_sae"],
+) -> Float[SparseTensor, "batch query_seq down_d_sae key_seq d_model"]:
+    # NOTE: Include key seq dimension in return tensor t
+    # - for MLP transcoders, t[:,q,:,k,:] = 0 iff k < q
     """Compute d(node_act)/d(head_input) for MLP transcoders
 
     Inputs:
@@ -30,7 +32,7 @@ def construct_sparse_grad_input_tensor_for_mlp(
     - input_act: [batch, seq, d_sae] - the activations of the SAE
 
     Outputs:
-    - sparse_tensor: [batch, seq, d_sae, d_model] - the sparse tensor of gradients
+    - sparse_tensor: [batch, query_seq, d_sae, key_seq, d_model] - the sparse tensor of gradients
     """
     batch, seq, d_sae = input_act.shape
     d_model = W_enc.shape[0]
@@ -39,14 +41,21 @@ def construct_sparse_grad_input_tensor_for_mlp(
     nonzero_mask = input_act != 0
     nonzero_indices = nonzero_mask.nonzero()
 
+    # Add key seq dimension
+    # [batch, query_seq, d_sae] -> [batch, query_seq, d_sae, key_seq]
+    # In practice, just do this by repeating the query_seq dimension
+    nonzero_indices = torch.cat(
+        [nonzero_indices, nonzero_indices[:, 1].unsqueeze(1)], dim=1
+    )  # [n_nonzero, 4]
+
     # Get the corresponding rows from W_enc
-    values = W_enc[:, [idx[2] for idx in nonzero_indices]]
+    Wenc_values = W_enc[:, [idx[2] for idx in nonzero_indices]]  # [d_model, n_nonzero]
 
     # Create sparse tensor
     sparse_tensor = torch.sparse_coo_tensor(
         indices=nonzero_indices.t(),
-        values=values.t(),
-        size=(batch, seq, d_sae, d_model),
+        values=Wenc_values.t(),
+        size=(batch, seq, d_sae, seq, d_model),
     )
 
     return sparse_tensor
@@ -56,8 +65,8 @@ def construct_sparse_grad_input_tensor_for_att(
     W_enc: Float[torch.Tensor, "n_head d_head d_sae"],
     W_V: Float[torch.Tensor, "n_head d_head d_model"],
     attn_pattern: Float[torch.Tensor, "batch n_head query_seq key_seq"],
-    input_act: Float[torch.Tensor, "batch seq d_sae"],
-) -> Float[SparseTensor, "batch query_seq key_seq down_d_sae d_model"]:
+    input_act: Float[torch.Tensor, "batch query_seq down_d_sae"],
+) -> Float[SparseTensor, "batch query_seq down_d_sae key_seq d_model"]:
     """Compute d(node_act)/d(head_input) for attention-out SAEs
 
     Inputs:
@@ -67,7 +76,9 @@ def construct_sparse_grad_input_tensor_for_att(
     - input_act: [batch, seq, d_sae] - the activations of the SAE
 
     Outputs:
-    - sparse_tensor: [batch, query_seq, key_seq, d_sae, d_model] - the sparse tensor of gradients
+    - sparse_tensor: [batch, query_seq, d_sae, key_seq, d_model] - the sparse tensor of gradients
+
+    In the returned sparse tensor, the d_model dimension is dense (i.e. not sparse)
     """
     batch, seq, d_sae = input_act.shape
     n_head, d_head, d_sae = W_enc.shape
@@ -77,6 +88,17 @@ def construct_sparse_grad_input_tensor_for_att(
     # Find nonzero activations
     nonzero_mask = input_act != 0
     nonzero_indices = nonzero_mask.nonzero()
+
+    # Now, compute the gradient
+    Wv_mul_pattern = einsum(
+        W_V,
+        attn_pattern,
+        "n_head d_head d_model, batch n_head query_seq key_seq -> batch query_seq key_seq d_model",
+    )
+
+    # Get the corresponding rows from W_enc
+    # Wenc_values = W_enc[:, :, [idx[2] for idx in nonzero_indices]] # [n_head, d_head, n_nonzero]
+    # Wenc_values = rearrange(Wenc_values, 'n_head d_head n_nonzero -> (n_head d_head) n_nonzero') # [d_model, n_nonzero]
 
     raise NotImplementedError("Need to implement construct_sparse_grad_tensor_for_att")
 
@@ -124,8 +146,8 @@ def get_sae_act_post_grad_head_input(
 
 
 def construct_sparse_grad_output_tensor_for_mlp(
-    W_dec: Float[torch.Tensor, "d_sae d_model"],
-    input_act: Float[torch.Tensor, "batch seq d_sae"],
+    W_dec: Float[torch.Tensor, "up_d_sae d_model"],
+    input_act: Float[torch.Tensor, "batch key_seq up_d_sae"],
 ) -> Float[SparseTensor, "batch key_seq up_d_sae d_model"]:
     """Construct a sparse tensor of d(head_output)/d(node_act) for MLP transcoders"""
 
@@ -134,15 +156,15 @@ def construct_sparse_grad_output_tensor_for_mlp(
 
     # Find nonzero activations
     nonzero_mask = input_act != 0
-    nonzero_indices = nonzero_mask.nonzero()
+    nonzero_indices = nonzero_mask.nonzero()  # [n_nonzero, 3]
 
-    # Get the corresponding rows from W_enc
-    values = W_dec[:, [idx[2] for idx in nonzero_indices]]
+    # Get the corresponding rows from W_dec
+    values = W_dec[[idx[2] for idx in nonzero_indices], :]  # [n_nonzero, d_model]
 
     # Create sparse tensor
     sparse_tensor = torch.sparse_coo_tensor(
         indices=nonzero_indices.t(),
-        values=values.t(),
+        values=values,
         size=(batch, seq, d_sae, d_model),
     )
 
@@ -150,31 +172,33 @@ def construct_sparse_grad_output_tensor_for_mlp(
 
 
 def construct_sparse_grad_output_tensor_for_att(
-    W_dec: Float[torch.Tensor, "d_sae d_z_concat"],
-    W_O: Float[torch.Tensor, "d_z_concat d_model"],
+    W_dec: Float[torch.Tensor, "d_sae n_head d_head"],
+    W_O: Float[torch.Tensor, "n_head d_head d_model"],
     input_act: Float[SparseTensor, "batch seq d_sae"],
 ) -> Float[SparseTensor, "batch key_seq up_d_sae d_model"]:
     """Construct a sparse tensor of d(head_output)/d(node_act) for attention-out SAEs"""
-    W = einsum(W_dec, W_O, "d_sae d_z_concat, d_z_concat d_model -> d_sae d_model")
+    W = einsum(
+        W_dec, W_O, "d_sae n_head d_head, n_head d_head d_model -> d_sae d_model"
+    )
 
     batch, seq, d_sae = input_act.shape
     d_model = W.shape[1]
 
     # Find nonzero activations
     nonzero_mask = input_act != 0
-    nonzero_indices = nonzero_mask.nonzero()
+    nonzero_indices = nonzero_mask.nonzero()  # [n_nonzero, 3]
 
-    # Get the corresponding rows from W_enc
-    values = W[:, [idx[2] for idx in nonzero_indices]]
+    # Get the corresponding rows from W_dec
+    values = W[[idx[2] for idx in nonzero_indices], :]  # [n_nonzero, d_model]
 
     # Create sparse tensor
     sparse_tensor = torch.sparse_coo_tensor(
         indices=nonzero_indices.t(),
-        values=values.t(),
+        values=values,
         size=(batch, seq, d_sae, d_model),
     )
 
-    return sparse_tensor
+    return sparse_tensor.coalesce()
 
 
 def get_sae_act_post_grad_head_output(
@@ -194,10 +218,8 @@ def get_sae_act_post_grad_head_output(
         # NOTE: This will be decoder weights, multiplied by W_V
         # NOTE: We need to multiply the W_V matrix here manually
         sae = model_handler.get_sae_for_head(upstream_head)
-        W_dec = sae.W_dec  # [d_sae, d_z_concat]
-        W_O = model_handler.blocks[
-            upstream_head.layer
-        ].attn.W_O  # [d_z_concat, d_model]
+        W_dec = sae.W_dec
+        W_O = model_handler.model.blocks[upstream_head.layer].attn.W_O
         input_act = cache_handler.get_act(upstream_head)
         return construct_sparse_grad_output_tensor_for_att(W_dec, W_O, input_act)
 
@@ -275,11 +297,14 @@ class LeapAlgo:
             downstream_head,
             downstream_important_nodes,
         )
-        grad_down_act_head_input /= self.cache_handler.get_layernorm_scale(
-            downstream_head
-        )
+        # TODO: Implement this correctly
+
+        # grad_down_act_head_input /= self.cache_handler.get_layernorm_scale(
+        #     downstream_head
+        # )
 
         for upstream_head in iter_upstream_heads(downstream_head):
+            # TODO: can we implement this in a batched way instead of looping over each head?
             grad_head_output_up_act = get_sae_act_post_grad_head_output(
                 self.model_handler, self.cache_handler, upstream_head
             )
@@ -289,7 +314,7 @@ class LeapAlgo:
                 up_act,
                 grad_head_output_up_act,
                 grad_down_act_head_input,
-                "batch key_seq up_d_sae, batch key_seq up_d_sae d_model, batch down_layer query_seq down_d_sae d_model, -> batch query_seq down_d_sae key_seq up_d_sae",
+                "batch key_seq up_d_sae, batch key_seq up_d_sae d_model, batch query_seq down_d_sae d_model, -> batch query_seq down_d_sae key_seq up_d_sae",
             )
             metric_grad = get_grad_metric_wrt_act(
                 self.cache_handler, downstream_head, downstream_important_nodes
@@ -322,7 +347,7 @@ class LeapAlgo:
                         down_feature,
                     )
                     assert downstream_node in self.graph
-                    self.graph.add_edge(upstream_node, downstream_node)
+                    self.graph.add_edge(upstream_node, downstream_node, score=val)
                     # NOTE: the above also adds upstream_node to the graph
 
             # TODO: implement other pruning strategies
@@ -336,6 +361,7 @@ class LeapAlgo:
         """
         for layer in reversed(list(range(self.model_handler.n_layers))):
             for head_type in ["mlp", "att"]:
+                print(f"Layer {layer}, head type {head_type}")
                 # NOTE: "att" currently handles 'OV' circuit only
                 # TODO: implement "q", "k" circuits
                 head = Head(layer, head_type)
