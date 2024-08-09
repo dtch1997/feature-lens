@@ -37,7 +37,7 @@ def load_sae(
 
 
 def load_transcoder(
-    release: str = "gpt2-small-mlp-tc", sae_id: str = "blocks.8.mlp.hook_mlp_in"
+    release: str = "gpt2-small-mlp-tc", sae_id: str = "blocks.8.mlp"
 ) -> Transcoder:
     if not release == "gpt2-small-mlp-tc":
         raise ValueError("Only gpt2-small-mlp-tc is supported")
