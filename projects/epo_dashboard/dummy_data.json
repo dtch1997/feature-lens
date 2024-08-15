@@ -1,0 +1,165 @@
+[
+    {
+        "SAE_metadata": {
+            "Layer": 5,
+            "SAE_type": "Neuron",
+            "Feature_ID": 1024
+        },
+        "Examples": [
+            {
+                "Tokens": [
+                    "The",
+                    "quick",
+                    "brown",
+                    "fox",
+                    "jumps",
+                    "over",
+                    "the",
+                    "lazy",
+                    "dog"
+                ],
+                "Activations_per_token": [
+                    0.1,
+                    0.3,
+                    0.7,
+                    0.9,
+                    0.8,
+                    0.4,
+                    0.2,
+                    0.5,
+                    0.6
+                ],
+                "EPO_metric_score": 0.75,
+                "Cross_entropy_score": 2.3
+            },
+            {
+                "Tokens": [
+                    "A",
+                    "stitch",
+                    "in",
+                    "time",
+                    "saves",
+                    "nine"
+                ],
+                "Activations_per_token": [
+                    0.2,
+                    0.6,
+                    0.3,
+                    0.8,
+                    0.7,
+                    0.5
+                ],
+                "EPO_metric_score": 0.68,
+                "Cross_entropy_score": 2.1
+            }
+        ]
+    },
+    {
+        "SAE_metadata": {
+            "Layer": 8,
+            "SAE_type": "Attention_Head",
+            "Feature_ID": 42
+        },
+        "Examples": [
+            {
+                "Tokens": [
+                    "To",
+                    "be",
+                    "or",
+                    "not",
+                    "to",
+                    "be",
+                    "that",
+                    "is",
+                    "the",
+                    "question"
+                ],
+                "Activations_per_token": [
+                    0.2,
+                    0.4,
+                    0.1,
+                    0.8,
+                    0.2,
+                    0.4,
+                    0.3,
+                    0.6,
+                    0.5,
+                    0.9
+                ],
+                "EPO_metric_score": 0.82,
+                "Cross_entropy_score": 1.9
+            },
+            {
+                "Tokens": [
+                    "All",
+                    "that",
+                    "glitters",
+                    "is",
+                    "not",
+                    "gold"
+                ],
+                "Activations_per_token": [
+                    0.3,
+                    0.2,
+                    0.7,
+                    0.4,
+                    0.5,
+                    0.8
+                ],
+                "EPO_metric_score": 0.71,
+                "Cross_entropy_score": 2.0
+            }
+        ]
+    },
+    {
+        "SAE_metadata": {
+            "Layer": 12,
+            "SAE_type": "MLP",
+            "Feature_ID": 2048
+        },
+        "Examples": [
+            {
+                "Tokens": [
+                    "In",
+                    "a",
+                    "galaxy",
+                    "far",
+                    "far",
+                    "away"
+                ],
+                "Activations_per_token": [
+                    0.3,
+                    0.1,
+                    0.8,
+                    0.6,
+                    0.6,
+                    0.7
+                ],
+                "EPO_metric_score": 0.68,
+                "Cross_entropy_score": 2.7
+            },
+            {
+                "Tokens": [
+                    "Life",
+                    "is",
+                    "like",
+                    "a",
+                    "box",
+                    "of",
+                    "chocolates"
+                ],
+                "Activations_per_token": [
+                    0.5,
+                    0.2,
+                    0.4,
+                    0.1,
+                    0.7,
+                    0.3,
+                    0.9
+                ],
+                "EPO_metric_score": 0.73,
+                "Cross_entropy_score": 2.4
+            }
+        ]
+    }
+]
