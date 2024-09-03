@@ -1,6 +1,82 @@
 import torch
 
 
+def convert_hybrid_to_sparse(hybrid_tensor):
+    """
+    Convert a hybrid tensor where the last dimension is dense to a fully sparse tensor.
+    """
+    # Get the indices and values of the hybrid tensor
+    indices = hybrid_tensor.indices()  # (sparse_dim, nnz)
+    values = hybrid_tensor.values()  # (nnz, dense_dim)
+
+    assert values.dim() == 2
+    dense_dim = values.size(1)
+
+    # Create the new indices and values
+    # TODO: change because it's very slow
+    new_indices = []
+    new_values = []
+
+    for sparse_idx, val in zip(indices.t(), values):
+        for dense_idx in range(dense_dim):
+            new_idx = torch.cat(
+                (
+                    sparse_idx,
+                    torch.tensor(
+                        [dense_idx],
+                        device=hybrid_tensor.device,
+                        dtype=hybrid_tensor.dtype,
+                    ),
+                )
+            )
+            new_val = val[dense_idx]
+            new_indices.append(new_idx)
+            new_values.append(new_val)
+
+    new_indices = torch.stack(new_indices, dim=0)
+    new_values = torch.stack(new_values, dim=0)
+    return torch.sparse_coo_tensor(
+        new_indices.t(),
+        new_values,
+        hybrid_tensor.size(),
+        device=hybrid_tensor.device,
+        dtype=hybrid_tensor.dtype,
+    )
+
+
+@torch.jit.script
+def efficient_convert_hybrid_to_sparse(hybrid_tensor: torch.Tensor) -> torch.Tensor:
+    """
+    Efficiently convert a hybrid tensor where the last dimension is dense to a fully sparse tensor.
+    This function is torch compilable.
+    """
+    assert hybrid_tensor.is_sparse, "Input tensor must be a sparse tensor"
+    assert (
+        hybrid_tensor.dense_dim() == 1
+    ), "Input tensor must have exactly one dense dimension"
+
+    indices = hybrid_tensor.indices()  # (sparse_dim, nnz)
+    values = hybrid_tensor.values()  # (nnz, dense_dim)
+    nnz, dense_dim = values.shape
+
+    # Create new indices
+    dense_indices = torch.arange(dense_dim, device=hybrid_tensor.device)
+    old_sparse_indices = indices.repeat_interleave(dense_dim, dim=1)
+    append_sparse_indices = dense_indices.repeat(nnz).unsqueeze(0)
+    new_indices = torch.cat([old_sparse_indices, append_sparse_indices], dim=0)
+
+    # Flatten values
+    new_values = values.reshape(-1)
+
+    return torch.sparse_coo_tensor(
+        new_indices,
+        new_values,
+        hybrid_tensor.size(),
+        device=hybrid_tensor.device,
+        dtype=hybrid_tensor.dtype,
+    )
+
+
 def sparse_mean(sparse_tensor, dim):
     if not isinstance(dim, (list, tuple)):
         dim = [dim]

@@ -1,30 +1,29 @@
 # type: ignore
-
-from __future__ import annotations
-
 import networkx
 import torch
 
-from einops import einsum
-from jaxtyping import Float
+from einops import einsum, rearrange
+from jaxtyping import Float, jaxtyped
 from typing import Iterable
+from typeguard import typechecked as typechecker
 
 from .types import Node, Head
 from .cache_handler import CacheHandler
 from .model_handler import ModelHandler
 from .utils import iter_upstream_heads
-from .sparse import sparse_mean
+from .sparse import sparse_mean, convert_hybrid_to_sparse
 
 # Define a sparse tensor type annotation
 SparseTensor = torch.Tensor
 
 
+@jaxtyped(typechecker=typechecker)
 def construct_sparse_grad_input_tensor_for_mlp(
     W_enc: Float[torch.Tensor, "d_model d_sae"],
     input_act: Float[torch.Tensor, "batch query_seq d_sae"],
 ) -> Float[SparseTensor, "batch query_seq down_d_sae key_seq d_model"]:
     # NOTE: Include key seq dimension in return tensor t
-    # - for MLP transcoders, t[:,q,:,k,:] = 0 iff k < q
+    # - for MLP transcoders, t[:,q,:,k,:] = 0 iff k != q
     """Compute d(node_act)/d(head_input) for MLP transcoders
 
     Inputs:
@@ -62,11 +61,13 @@ def construct_sparse_grad_input_tensor_for_mlp(
         indices=nonzero_indices.t(),
         values=Wenc_values.t(),
         size=(batch, seq, d_sae, seq, d_model),
-    )
+    ).coalesce()
+    sparse_tensor = convert_hybrid_to_sparse(sparse_tensor)
 
-    return sparse_tensor
+    return sparse_tensor.coalesce()
 
 
+@jaxtyped(typechecker=typechecker)
 def construct_sparse_grad_input_tensor_for_att(
     W_enc: Float[torch.Tensor, "n_head d_head d_sae"],
     W_V: Float[torch.Tensor, "n_head d_head d_model"],
@@ -115,17 +116,19 @@ def construct_sparse_grad_input_tensor_for_att(
         indices=nonzero_indices.t(),
         values=grad,
         size=(batch, query_seq, d_sae, key_seq, d_model),
-    )
+    ).coalesce()
+    sparse_tensor = convert_hybrid_to_sparse(sparse_tensor)
 
     return sparse_tensor.coalesce()
 
 
+@jaxtyped(typechecker=typechecker)
 def get_sae_act_post_grad_head_input(
     model_handler: ModelHandler,
     cache_handler: CacheHandler,
     downstream_head: Head,
     downstream_important_nodes: list[Node],
-) -> Float[SparseTensor, "batch query_seq down_d_sae d_model"]:
+) -> Float[SparseTensor, "batch query_seq down_d_sae key_seq d_model"]:
     """Get the gradient of the post-ReLU activations of the SAE w.r.t the input to that head
 
     Remarks
@@ -137,20 +140,20 @@ def get_sae_act_post_grad_head_input(
 
     if downstream_head.head_type == "att":
         # Attention-out SAE
-        W_enc = model_handler.get_sae_for_head(downstream_head).W_enc
-        W_V = model_handler.blocks[downstream_head.layer].attn.W_V
+        W_enc = model_handler.get_sae_for_head(downstream_head).W_enc.data
+        W_V = model_handler.blocks[downstream_head.layer].attn.W_V.data
         attn_pattern = cache_handler.get_cache(downstream_head, "clean")[
             f"blocks.{downstream_head.layer}.attn.hook_pattern"
         ]
         input_act = cache_handler.get_act(downstream_head)
         return construct_sparse_grad_input_tensor_for_att(
             W_enc, W_V, attn_pattern, input_act
-        )
+        ).coalesce()
 
     elif downstream_head.head_type == "mlp":
-        W_enc = model_handler.get_sae_for_head(downstream_head).W_enc
+        W_enc = model_handler.get_sae_for_head(downstream_head).W_enc.data
         input_act = cache_handler.get_act(downstream_head)
-        return construct_sparse_grad_input_tensor_for_mlp(W_enc, input_act)
+        return construct_sparse_grad_input_tensor_for_mlp(W_enc, input_act).coalesce()
 
     elif downstream_head.head_type == "q":
         raise NotImplementedError("Q circuit not yet implemented")
@@ -162,6 +165,7 @@ def get_sae_act_post_grad_head_input(
         raise ValueError(f"Unknown head type: {downstream_head.head_type}")
 
 
+@jaxtyped(typechecker=typechecker)
 def construct_sparse_grad_output_tensor_for_mlp(
     W_dec: Float[torch.Tensor, "up_d_sae d_model"],
     input_act: Float[torch.Tensor, "batch key_seq up_d_sae"],
@@ -184,11 +188,13 @@ def construct_sparse_grad_output_tensor_for_mlp(
         indices=nonzero_indices.t(),
         values=values,
         size=(batch, seq, d_sae, d_model),
-    )
+    ).coalesce()
+    sparse_tensor = convert_hybrid_to_sparse(sparse_tensor)
 
-    return sparse_tensor
+    return sparse_tensor.coalesce()
 
 
+@jaxtyped(typechecker=typechecker)
 def construct_sparse_grad_output_tensor_for_att(
     W_dec: Float[torch.Tensor, "d_sae n_head d_head"],
     W_O: Float[torch.Tensor, "n_head d_head d_model"],
@@ -215,7 +221,8 @@ def construct_sparse_grad_output_tensor_for_att(
         indices=nonzero_indices.t(),
         values=values,
         size=(batch, seq, d_sae, d_model),
-    )
+    ).coalesce()
+    sparse_tensor = convert_hybrid_to_sparse(sparse_tensor)
 
     return sparse_tensor.coalesce()
 
@@ -235,13 +242,20 @@ def get_sae_act_post_grad_head_output(
     if upstream_head.head_type == "att":
         # Attention-out SAE
         sae = model_handler.get_sae_for_head(upstream_head)
-        W_dec = sae.W_dec
-        W_O = model_handler.model.blocks[upstream_head.layer].attn.W_O
+        W_dec = sae.W_dec.data
+        W_dec = rearrange(
+            W_dec,
+            "d_sae (n_head d_head) -> d_sae n_head d_head",
+            n_head=model_handler.model.cfg.n_heads,
+        )
+        W_O = model_handler.model.blocks[upstream_head.layer].attn.W_O.data
         input_act = cache_handler.get_act(upstream_head)
         return construct_sparse_grad_output_tensor_for_att(W_dec, W_O, input_act)
 
     elif upstream_head.head_type == "mlp":
-        W_dec = model_handler.get_sae_for_head(upstream_head).W_dec  # [d_sae, d_model]
+        W_dec = model_handler.get_sae_for_head(
+            upstream_head
+        ).W_dec.data  # [d_sae, d_model]
         input_act = cache_handler.get_act(upstream_head)  # [batch, seq, d_sae]
         sparse_tensor = construct_sparse_grad_output_tensor_for_mlp(W_dec, input_act)
         return sparse_tensor
@@ -254,6 +268,39 @@ def get_sae_act_post_grad_head_output(
 
     else:
         raise ValueError(f"Unknown head type: {upstream_head.head_type}")
+
+
+@jaxtyped(typechecker=typechecker)
+def get_dpa(
+    up_act: Float[torch.Tensor, "batch key_seq up_d_sae"],
+    grad_head_output_up_act: Float[
+        SparseTensor, "batch key_seq up_d_sae d_model"
+    ],  # (3 sparse, 1 dense)
+    grad_down_act_head_input: Float[
+        SparseTensor,
+        "batch query_seq down_d_sae key_seq d_model",  # (4 sparse, 1 dense)
+    ],
+) -> Float[torch.Tensor, "batch query_seq down_d_sae key_seq up_d_sae"]:
+    """Compute the direct path attribution (DPA) for a given pair of heads"""
+    # return einsum(
+    #     up_act,
+    #     grad_head_output_up_act,
+    #     grad_down_act_head_input,
+    #     "batch key_seq up_d_sae, batch key_seq up_d_sae d_model, batch query_seq down_d_sae key_seq d_model -> batch query_seq down_d_sae key_seq up_d_sae",
+    # )
+    g_up = grad_head_output_up_act
+    g_down = grad_down_act_head_input
+    breakpoint()
+    grad_pdt = einsum(
+        g_up,
+        g_down,
+        "batch key_seq up_d_sae d_model, batch query_seq down_d_sae key_seq d_model -> batch query_seq down_d_sae key_seq up_d_sae",
+    )
+    return einsum(
+        up_act,
+        grad_pdt,
+        "batch key_seq up_d_sae, batch query_seq down_d_sae key_seq up_d_sae -> batch query_seq down_d_sae key_seq up_d_sae",
+    )
 
 
 def get_grad_metric_wrt_act(
@@ -308,12 +355,13 @@ class LeapAlgo:
 
     def leap_step(self, head: Head):
         downstream_head = head
-        # TODO: Handle filtering downstream head by important nodes
         downstream_important_nodes = list(
             self.iter_important_nodes_at_head(downstream_head)
         )
 
-        grad_down_act_head_input = get_sae_act_post_grad_head_input(
+        grad_down_act_head_input: Float[
+            SparseTensor, "batch query_seq down_d_sae key_seq d_model"
+        ] = get_sae_act_post_grad_head_input(
             self.model_handler,
             self.cache_handler,
             downstream_head,
@@ -327,17 +375,14 @@ class LeapAlgo:
 
         for upstream_head in iter_upstream_heads(downstream_head):
             # TODO: can we implement this in a batched way instead of looping over each head?
-            grad_head_output_up_act = get_sae_act_post_grad_head_output(
+            grad_head_output_up_act: Float[
+                SparseTensor, "batch key_seq up_d_sae d_model"
+            ] = get_sae_act_post_grad_head_output(
                 self.model_handler, self.cache_handler, upstream_head
             )
             up_act = self.cache_handler.get_act(upstream_head)
 
-            dpa = einsum(
-                up_act,
-                grad_head_output_up_act,
-                grad_down_act_head_input,
-                "batch key_seq up_d_sae, batch key_seq up_d_sae d_model, batch query_seq down_d_sae d_model, -> batch query_seq down_d_sae key_seq up_d_sae",
-            )
+            dpa = get_dpa(up_act, grad_head_output_up_act, grad_down_act_head_input)
             metric_grad = get_grad_metric_wrt_act(
                 self.cache_handler, downstream_head, downstream_important_nodes
             )
