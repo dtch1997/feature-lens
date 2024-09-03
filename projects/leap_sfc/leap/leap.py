@@ -146,12 +146,12 @@ def get_sae_act_post_grad_head_input(
         input_act = cache_handler.get_act(downstream_head)
         return construct_sparse_grad_input_tensor_for_att(
             W_enc, W_V, attn_pattern, input_act
-        )
+        ).coalesce()
 
     elif downstream_head.head_type == "mlp":
         W_enc = model_handler.get_sae_for_head(downstream_head).W_enc.data
         input_act = cache_handler.get_act(downstream_head)
-        return construct_sparse_grad_input_tensor_for_mlp(W_enc, input_act)
+        return construct_sparse_grad_input_tensor_for_mlp(W_enc, input_act).coalesce()
 
     elif downstream_head.head_type == "q":
         raise NotImplementedError("Q circuit not yet implemented")
@@ -269,9 +269,12 @@ def get_sae_act_post_grad_head_output(
 @jaxtyped(typechecker=typechecker)
 def get_dpa(
     up_act: Float[torch.Tensor, "batch key_seq up_d_sae"],
-    grad_head_output_up_act: Float[torch.Tensor, "batch key_seq up_d_sae d_model"],
+    grad_head_output_up_act: Float[
+        torch.Tensor, "batch key_seq up_d_sae d_model"
+    ],  # (3 sparse, 1 dense)
     grad_down_act_head_input: Float[
-        SparseTensor, "batch query_seq down_d_sae key_seq d_model"
+        SparseTensor,
+        "batch query_seq down_d_sae key_seq d_model",  # (3 sparse, 2 dense)
     ],
 ) -> Float[torch.Tensor, "batch query_seq down_d_sae key_seq up_d_sae"]:
     """Compute the direct path attribution (DPA) for a given pair of heads"""
