@@ -1,6 +1,49 @@
 import torch
 
 
+def convert_hybrid_to_sparse(hybrid_tensor):
+    """
+    Convert a hybrid tensor where the last dimension is dense to a fully sparse tensor.
+    """
+    # Get the indices and values of the hybrid tensor
+    indices = hybrid_tensor.indices()  # (sparse_dim, nnz)
+    values = hybrid_tensor.values()  # (nnz, dense_dim)
+
+    assert values.dim() == 2
+    dense_dim = values.size(1)
+
+    # Create the new indices and values
+    # TODO: change because it's very slow
+    new_indices = []
+    new_values = []
+
+    for sparse_idx, val in zip(indices.t(), values):
+        for dense_idx in range(dense_dim):
+            new_idx = torch.cat(
+                (
+                    sparse_idx,
+                    torch.tensor(
+                        [dense_idx],
+                        device=hybrid_tensor.device,
+                        dtype=hybrid_tensor.dtype,
+                    ),
+                )
+            )
+            new_val = val[dense_idx]
+            new_indices.append(new_idx)
+            new_values.append(new_val)
+
+    new_indices = torch.stack(new_indices, dim=0)
+    new_values = torch.stack(new_values, dim=0)
+    return torch.sparse_coo_tensor(
+        new_indices.t(),
+        new_values,
+        hybrid_tensor.size(),
+        device=hybrid_tensor.device,
+        dtype=hybrid_tensor.dtype,
+    )
+
+
 def sparse_mean(sparse_tensor, dim):
     if not isinstance(dim, (list, tuple)):
         dim = [dim]

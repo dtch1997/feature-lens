@@ -11,7 +11,7 @@ from .types import Node, Head
 from .cache_handler import CacheHandler
 from .model_handler import ModelHandler
 from .utils import iter_upstream_heads
-from .sparse import sparse_mean
+from .sparse import sparse_mean, convert_hybrid_to_sparse
 
 # Define a sparse tensor type annotation
 SparseTensor = torch.Tensor
@@ -23,7 +23,7 @@ def construct_sparse_grad_input_tensor_for_mlp(
     input_act: Float[torch.Tensor, "batch query_seq d_sae"],
 ) -> Float[SparseTensor, "batch query_seq down_d_sae key_seq d_model"]:
     # NOTE: Include key seq dimension in return tensor t
-    # - for MLP transcoders, t[:,q,:,k,:] = 0 iff k < q
+    # - for MLP transcoders, t[:,q,:,k,:] = 0 iff k != q
     """Compute d(node_act)/d(head_input) for MLP transcoders
 
     Inputs:
@@ -61,9 +61,10 @@ def construct_sparse_grad_input_tensor_for_mlp(
         indices=nonzero_indices.t(),
         values=Wenc_values.t(),
         size=(batch, seq, d_sae, seq, d_model),
-    )
+    ).coalesce()
+    sparse_tensor = convert_hybrid_to_sparse(sparse_tensor)
 
-    return sparse_tensor
+    return sparse_tensor.coalesce()
 
 
 @jaxtyped(typechecker=typechecker)
@@ -115,7 +116,8 @@ def construct_sparse_grad_input_tensor_for_att(
         indices=nonzero_indices.t(),
         values=grad,
         size=(batch, query_seq, d_sae, key_seq, d_model),
-    )
+    ).coalesce()
+    sparse_tensor = convert_hybrid_to_sparse(sparse_tensor)
 
     return sparse_tensor.coalesce()
 
@@ -186,9 +188,10 @@ def construct_sparse_grad_output_tensor_for_mlp(
         indices=nonzero_indices.t(),
         values=values,
         size=(batch, seq, d_sae, d_model),
-    )
+    ).coalesce()
+    sparse_tensor = convert_hybrid_to_sparse(sparse_tensor)
 
-    return sparse_tensor
+    return sparse_tensor.coalesce()
 
 
 @jaxtyped(typechecker=typechecker)
@@ -218,7 +221,8 @@ def construct_sparse_grad_output_tensor_for_att(
         indices=nonzero_indices.t(),
         values=values,
         size=(batch, seq, d_sae, d_model),
-    )
+    ).coalesce()
+    sparse_tensor = convert_hybrid_to_sparse(sparse_tensor)
 
     return sparse_tensor.coalesce()
 
@@ -270,19 +274,32 @@ def get_sae_act_post_grad_head_output(
 def get_dpa(
     up_act: Float[torch.Tensor, "batch key_seq up_d_sae"],
     grad_head_output_up_act: Float[
-        torch.Tensor, "batch key_seq up_d_sae d_model"
+        SparseTensor, "batch key_seq up_d_sae d_model"
     ],  # (3 sparse, 1 dense)
     grad_down_act_head_input: Float[
         SparseTensor,
-        "batch query_seq down_d_sae key_seq d_model",  # (3 sparse, 2 dense)
+        "batch query_seq down_d_sae key_seq d_model",  # (4 sparse, 1 dense)
     ],
 ) -> Float[torch.Tensor, "batch query_seq down_d_sae key_seq up_d_sae"]:
     """Compute the direct path attribution (DPA) for a given pair of heads"""
+    # return einsum(
+    #     up_act,
+    #     grad_head_output_up_act,
+    #     grad_down_act_head_input,
+    #     "batch key_seq up_d_sae, batch key_seq up_d_sae d_model, batch query_seq down_d_sae key_seq d_model -> batch query_seq down_d_sae key_seq up_d_sae",
+    # )
+    g_up = grad_head_output_up_act
+    g_down = grad_down_act_head_input
+    breakpoint()
+    grad_pdt = einsum(
+        g_up,
+        g_down,
+        "batch key_seq up_d_sae d_model, batch query_seq down_d_sae key_seq d_model -> batch query_seq down_d_sae key_seq up_d_sae",
+    )
     return einsum(
         up_act,
-        grad_head_output_up_act,
-        grad_down_act_head_input,
-        "batch key_seq up_d_sae, batch key_seq up_d_sae d_model, batch query_seq down_d_sae key_seq d_model -> batch query_seq down_d_sae key_seq up_d_sae",
+        grad_pdt,
+        "batch key_seq up_d_sae, batch query_seq down_d_sae key_seq up_d_sae -> batch query_seq down_d_sae key_seq up_d_sae",
     )
 
 
