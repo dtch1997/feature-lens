@@ -5,6 +5,7 @@ from projects.leap_sfc.leap.sparse import (
     sparse_mean,
     efficient_sparse_mean,
     convert_hybrid_to_sparse,
+    efficient_convert_hybrid_to_sparse,
 )
 
 
@@ -42,6 +43,20 @@ def test_convert_hybrid_to_sparse(hybrid_tensor):
 
     # Check that all other elements are zero
     assert dense_tensor.sum().item() == 21.0  # sum of all non-zero elements
+
+
+def test_efficient_convert_hybrid_to_sparse_matches_base(hybrid_tensor):
+    base_result = convert_hybrid_to_sparse(hybrid_tensor)
+    efficient_result = efficient_convert_hybrid_to_sparse(hybrid_tensor)
+
+    assert efficient_result.is_sparse
+    assert efficient_result.sparse_dim() == 3
+    assert efficient_result.shape == hybrid_tensor.shape
+    assert efficient_result._nnz() == 6
+
+    dense_tensor = efficient_result.to_dense()
+    assert torch.allclose(dense_tensor, hybrid_tensor.to_dense())
+    assert torch.allclose(dense_tensor, base_result.to_dense())
 
 
 def test_sparse_mean():
