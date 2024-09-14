@@ -292,7 +292,6 @@ def get_dpa(
     g_down = grad_down_act_head_input
 
     # Check sparse dims match
-    breakpoint()
     b1, k1, u = get_sparse_dim(g_up)
     b2, q, d, k2 = get_sparse_dim(g_down)
     assert k1 == k2
