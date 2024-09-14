@@ -1,4 +1,7 @@
 import torch
+from typing import NewType
+
+SparseTensor = NewType("SparseTensor", torch.Tensor)
 
 
 def convert_hybrid_to_sparse(hybrid_tensor):
@@ -143,3 +146,45 @@ def sparse_mean(sparse_tensor, dim):
 
 def efficient_sparse_mean(sparse_tensor, dim):
     raise NotImplementedError("efficient_sparse_mean is not implemented yet")
+
+
+def sparse_rearrange(x: SparseTensor, perm: list[int]):
+    """
+    x : a sparse COO tensor
+    perm (list): a permutation of the dimensions of x
+    return x with the dimensions permuted
+    """
+    assert set(perm) == set(range(x.dim()))
+    x = x.coalesce()
+    inds = x.indices()
+    new_inds = torch.stack([inds[i] for i in perm], dim=0)
+
+    new_shape = [x.shape[i] for i in perm]
+    return torch.sparse_coo_tensor(new_inds, x.values(), new_shape)
+
+
+def sparse_repeat(x: SparseTensor, n_repeat: int):
+    """
+    x : a sparse COO tensor, shape [s1, s2, ...]
+    n_repeat : an int
+    return x repeated n_repeat times on the 0th dimension, shape [n_repeat, s1, s2, ...]
+    """
+    x = x.coalesce()
+    inds = x.indices()
+    vals = x.values()
+
+    # repeat the indices
+    first_row = torch.arange(n_repeat, device=inds.device, dtype=inds.dtype).repeat(
+        inds.shape[1]
+    )
+    repeated_inds = inds.repeat_interleave(n_repeat, dim=1)
+    rep_inds = torch.cat([first_row.unsqueeze(0), repeated_inds], dim=0)
+
+    # repeat the values
+    rep_vals = (
+        torch.tensor([val for val in vals for _ in range(n_repeat)])
+        .to(vals.device)
+        .to(vals.dtype)
+    )
+
+    return torch.sparse_coo_tensor(rep_inds, rep_vals, (n_repeat,) + x.shape)

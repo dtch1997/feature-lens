@@ -11,10 +11,14 @@ from .types import Node, Head
 from .cache_handler import CacheHandler
 from .model_handler import ModelHandler
 from .utils import iter_upstream_heads
-from .sparse import sparse_mean, convert_hybrid_to_sparse
-
-# Define a sparse tensor type annotation
-SparseTensor = torch.Tensor
+from .sparse import sparse_mean
+from .sparse_utils import (
+    sparse_dot_product,
+    sparse_repeat,
+    SparseCOOTensor as SparseTensor,
+    get_dense_dim,
+    get_sparse_dim,
+)
 
 
 @jaxtyped(typechecker=typechecker)
@@ -62,7 +66,6 @@ def construct_sparse_grad_input_tensor_for_mlp(
         values=Wenc_values.t(),
         size=(batch, seq, d_sae, seq, d_model),
     ).coalesce()
-    sparse_tensor = convert_hybrid_to_sparse(sparse_tensor)
 
     return sparse_tensor.coalesce()
 
@@ -117,7 +120,6 @@ def construct_sparse_grad_input_tensor_for_att(
         values=grad,
         size=(batch, query_seq, d_sae, key_seq, d_model),
     ).coalesce()
-    sparse_tensor = convert_hybrid_to_sparse(sparse_tensor)
 
     return sparse_tensor.coalesce()
 
@@ -189,7 +191,6 @@ def construct_sparse_grad_output_tensor_for_mlp(
         values=values,
         size=(batch, seq, d_sae, d_model),
     ).coalesce()
-    sparse_tensor = convert_hybrid_to_sparse(sparse_tensor)
 
     return sparse_tensor.coalesce()
 
@@ -222,7 +223,6 @@ def construct_sparse_grad_output_tensor_for_att(
         values=values,
         size=(batch, seq, d_sae, d_model),
     ).coalesce()
-    sparse_tensor = convert_hybrid_to_sparse(sparse_tensor)
 
     return sparse_tensor.coalesce()
 
@@ -290,17 +290,37 @@ def get_dpa(
     # )
     g_up = grad_head_output_up_act
     g_down = grad_down_act_head_input
+
+    # Check sparse dims match
     breakpoint()
-    grad_pdt = einsum(
-        g_up,
-        g_down,
-        "batch key_seq up_d_sae d_model, batch query_seq down_d_sae key_seq d_model -> batch query_seq down_d_sae key_seq up_d_sae",
-    )
-    return einsum(
-        up_act,
-        grad_pdt,
-        "batch key_seq up_d_sae, batch query_seq down_d_sae key_seq up_d_sae -> batch query_seq down_d_sae key_seq up_d_sae",
-    )
+    b1, k1, u = get_sparse_dim(g_up)
+    b2, q, d, k2 = get_sparse_dim(g_down)
+    assert k1 == k2
+    assert b1 == b2
+
+    # Check dense dims match
+    dm1 = get_dense_dim(g_up)[0]
+    dm2 = get_dense_dim(g_down)[0]
+    assert dm1 == dm2
+
+    # Expand g_up via repeating
+    g_up = sparse_repeat(g_up, n_repeat=q, dim=1)  # [b, k, u, dm] -> [b, q, k, u, dm]
+    g_up = sparse_repeat(
+        g_up, n_repeat=d, dim=2
+    )  # [b, q, k, u, dm] -> [b, q, d, k, u, dm]
+
+    # Expand g_down via repeating
+    g_down = sparse_repeat(
+        g_down, n_repeat=u, dim=3
+    )  # [b, q, d, k, dm] -> [b, q, d, k, u, dm]
+
+    # Expand up_act via repeating
+    up_act = sparse_repeat(up_act, n_repeat=q, dim=1)  # [b, k, u] -> [b, q, k, u]
+    up_act = sparse_repeat(up_act, n_repeat=d, dim=2)  # [b, q, k, u] -> [b, q, d, k, u]
+
+    # Compute DPA
+    grad_pdt = sparse_dot_product(g_up, g_down)  # [b, q, d, k, u]
+    return (up_act * grad_pdt).coalesce()  # [b, q, d, k, u]
 
 
 def get_grad_metric_wrt_act(
